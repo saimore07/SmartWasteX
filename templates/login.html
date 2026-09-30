@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}Login — SmartWasteX{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center align-items-center min-vh-75">
+        <div class="col-12 col-md-8 col-lg-5">
+            <!-- Brand Card -->
+            <div class="card eco-card shadow-lg border-0 overflow-hidden">
+                <div class="card-header bg-dark text-white text-center py-4 border-0 position-relative" style="background: var(--dark-gradient) !important;">
+                    <div class="brand-icon-box mx-auto mb-3" style="width: 54px; height: 54px; font-size: 1.75rem;">
+                        <i class="bi bi-recycle"></i>
+                    </div>
+                    <h2 class="h3 fw-bold mb-1 brand-font text-white">SmartWaste<span class="text-success">X</span></h2>
+                    <p class="text-secondary small mb-0">Making Every Waste Action Count</p>
+                </div>
+                
+                <div class="card-body p-4 p-md-5">
+                    <form method="POST" action="{{ url_for('auth.login', next=request.args.get('next')) }}">
+                        <div class="mb-3">
+                            <label for="email" class="form-label fw-semibold small text-muted text-uppercase">Email / Username</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-envelope"></i></span>
+                                <input type="email" class="form-control border-start-0" id="email" name="email" value="{{ email or '' }}" placeholder="name@smartwastex.in" required autofocus>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label for="password" class="form-label fw-semibold small text-muted text-uppercase mb-0">Password</label>
+                            </div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-lock"></i></span>
+                                <input type="password" class="form-control border-start-0" id="password" name="password" placeholder="••••••••" required>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-emerald w-100 py-2 fs-6 mb-3">
+                            <i class="bi bi-box-arrow-in-right me-2"></i> Access Platform
+                        </button>
+                    </form>
+
+                    <!-- Demo Credentials Helper for Hackathon Evaluation -->
+                    <div class="mt-4 pt-3 border-top">
+                        <div class="d-flex align-items-center justify-content-between mb-2">
+                            <span class="small fw-bold text-muted text-uppercase"><i class="bi bi-key-fill text-warning me-1"></i> Quick Demo Access</span>
+                            <span class="badge bg-light text-muted border">Hackathon Mode</span>
+                        </div>
+                        <p class="text-muted small mb-3">Click below to auto-populate credentials for evaluation:</p>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="button" class="btn btn-outline-success btn-sm text-start py-2 px-3 d-flex justify-content-between align-items-center" onclick="fillCredentials('user1@smartwastex.in', 'user1@123')">
+                                <div>
+                                    <div class="fw-bold"><i class="bi bi-person-fill me-1"></i> Demo Campus User</div>
+                                    <small class="text-muted">user1@smartwastex.in</small>
+                                </div>
+                                <span class="badge bg-success-subtle text-success">Select</span>
+                            </button>
+
+                            <button type="button" class="btn btn-outline-primary btn-sm text-start py-2 px-3 d-flex justify-content-between align-items-center" onclick="fillCredentials('admin@smartwastex.in', 'admin@123')">
+                                <div>
+                                    <div class="fw-bold"><i class="bi bi-shield-lock-fill me-1"></i> Demo Admin / Officer</div>
+                                    <small class="text-muted">admin@smartwastex.in</small>
+                                </div>
+                                <span class="badge bg-primary-subtle text-primary">Select</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card-footer bg-light text-center py-3 border-top text-muted small">
+                    Track 4: SDG 11 Sustainable Campus Infrastructure
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+
+{% block title %}Environmental Impact — SmartWasteX{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="text-center mb-5">
+        <span class="badge bg-success-subtle text-success px-3 py-1 rounded-pill fw-bold mb-2">
+            <i class="bi bi-globe-americas me-1"></i> SDG 11 Climate Metrics
+        </span>
+        <h1 class="display-6 fw-bold brand-font">Your Environmental Impact</h1>
+        <p class="text-muted col-lg-6 mx-auto">
+            Translating your individual waste segregation actions into verified carbon offset equivalents and circular economy metrics.
+        </p>
+    </div>
+
+    <!-- Personal Equivalencies Grid -->
+    <div class="row g-3 mb-5">
+        <div class="col-md-4">
+            <div class="card eco-card stat-card text-center p-4">
+                <div class="stat-icon bg-success-subtle text-success mx-auto mb-3" style="width: 64px; height: 64px; font-size: 2rem;">
+                    <i class="bi bi-cloud-slash-fill"></i>
+                </div>
+                <div class="display-5 fw-bold text-success mb-1">{{ impact.co2_saved_kg }} <span class="fs-6 text-muted fw-normal">kg CO₂e</span></div>
+                <div class="stat-label mb-2">Carbon Emissions Avoided</div>
+                <p class="text-muted small mb-0">Equivalent to avoiding methane release from organic decomposition and virgin polymer production.</p>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card eco-card stat-card text-center p-4">
+                <div class="stat-icon bg-primary-subtle text-primary mx-auto mb-3" style="width: 64px; height: 64px; font-size: 2rem;">
+                    <i class="bi bi-tree-fill"></i>
+                </div>
+                <div class="display-5 fw-bold text-primary mb-1">{{ impact.trees_equivalent }} <span class="fs-6 text-muted fw-normal">Trees</span></div>
+                <div class="stat-label mb-2">Annual Urban Tree Equivalent</div>
+                <p class="text-muted small mb-0">Equivalent to the CO2 sequestered by mature campus foliage over a multi-month period.</p>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card eco-card stat-card text-center p-4">
+                <div class="stat-icon bg-warning-subtle text-warning mx-auto mb-3" style="width: 64px; height: 64px; font-size: 2rem;">
+                    <i class="bi bi-stars"></i>
+                </div>
+                <div class="display-5 fw-bold text-warning mb-1">{{ impact.green_credits }} <span class="fs-6 text-muted fw-normal">Points</span></div>
+                <div class="stat-label mb-2">Green Credits Balance</div>
+                <p class="text-muted small mb-0">Redeemable for university cafeteria eco-tokens, print quotas, and campus sustainability merchandise.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Campus Alignment Banner -->
+    <div class="card eco-card p-4 mb-4 border-start border-4 border-success">
+        <div class="row align-items-center g-4">
+            <div class="col-lg-8">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-success">SDG Target 11.6</span>
+                    <h5 class="fw-bold mb-0">Reducing Urban & Campus Environmental Footprint</h5>
+                </div>
+                <p class="text-muted mb-0">
+                    By 2030, reduce the adverse per capita environmental impact of universities and cities, including by paying special attention to municipal waste management and institutional e-waste circularity.
+                </p>
+            </div>
+            <div class="col-lg-4 text-lg-end">
+                <a href="{{ url_for('waste.scan') }}" class="btn btn-emerald px-4 py-2">
+                    <i class="bi bi-camera me-1"></i> Scan More Waste
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+
+{% block title %}AI Waste Scanner — SmartWasteX{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="text-center mb-4">
+        <span class="badge bg-success-subtle text-success px-3 py-1 rounded-pill fw-bold mb-2">
+            <i class="bi bi-robot me-1"></i> Computer Vision Core
+        </span>
+        <h1 class="display-6 fw-bold brand-font">AI Waste Segregation Scanner</h1>
+        <p class="text-muted col-lg-6 mx-auto">
+            Take or upload a photo of your campus waste item. Our AI analyzes its visual features to classify it into the correct institutional stream and guide you to the nearest smart bin.
+        </p>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-7">
+            <!-- Upload & Camera Card -->
+            <div class="card eco-card shadow-sm border-0 mb-4 overflow-hidden">
+                <div class="card-header bg-dark text-white py-3 px-4 d-flex justify-content-between align-items-center" style="background: var(--dark-gradient) !important;">
+                    <div class="fw-semibold"><i class="bi bi-camera me-2"></i> Image Intake Channel</div>
+                    <span class="badge bg-white bg-opacity-10 text-white small">Supports JPEG, PNG, WEBP</span>
+                </div>
+
+                <div class="card-body p-4 p-md-5">
+                    <form id="wasteScanForm" method="POST" action="{{ url_for('waste.scan') }}" enctype="multipart/form-data">
+                        <input type="hidden" name="sample_item" id="sampleItemField" value="">
+
+                        <!-- Drag & Drop Area -->
+                        <div id="uploadDropzone" class="dropzone-box mb-4" onclick="document.getElementById('wasteImageInput').click();">
+                            <i class="bi bi-cloud-arrow-up-fill display-4 text-success mb-2 d-block"></i>
+                            <h5 class="fw-bold mb-1">Click to Upload or Drag & Drop</h5>
+                            <p class="text-muted small mb-0">Select an item image from your device or camera</p>
+                            <input type="file" id="wasteImageInput" name="waste_image" class="d-none" accept="image/*" capture="environment">
+                        </div>
+
+                        <!-- Image Preview Section (Hidden initially) -->
+                        <div id="imagePreviewContainer" class="preview-img-container mb-4 d-none text-center">
+                            <img id="imagePreview" src="#" alt="Selected waste item" class="img-fluid rounded">
+                            <div class="mt-2 small text-muted">Ready for analysis</div>
+                        </div>
+
+                        <!-- Optional Item Keyword Hint -->
+                        <div class="mb-4">
+                            <label for="hintInput" class="form-label small fw-semibold text-muted text-uppercase">Item Description or Notes (Optional)</label>
+                            <input type="text" class="form-control form-control-sm" id="hintInput" name="hint" placeholder="e.g. Battery, Plastic bottle, Banana peel...">
+                        </div>
+
+                        <!-- Submit Button -->
+                        <button type="submit" id="scanSubmitBtn" class="btn btn-emerald w-100 py-3 fs-5 fw-bold shadow">
+                            <i class="bi bi-cpu-fill me-2"></i> Analyze with AI
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Demo Quick-Select Palette (For Hackathon Live Demonstration) -->
+            <div class="card eco-card border-0 shadow-sm p-4">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold mb-0 text-dark">
+                        <i class="bi bi-lightning-charge-fill text-warning me-1"></i> Quick Demo Test Samples
+                    </h6>
+                    <span class="badge bg-light text-muted border">1-Click Instant Scan</span>
+                </div>
+                <p class="text-muted small mb-3">Presenting to judges? Click any sample below to classify immediately without needing a local camera:</p>
+
+                <div class="row g-2">
+                    <div class="col-6 col-sm-4">
+                        <button type="button" class="btn btn-outline-danger w-100 p-2 text-start small d-flex align-items-center gap-2" onclick="selectSample('battery')">
+                            <span class="fs-4">🔋</span>
+                            <div>
+                                <div class="fw-bold">Lithium Battery</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">Hazardous / E-Waste</div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-6 col-sm-4">
+                        <button type="button" class="btn btn-outline-primary w-100 p-2 text-start small d-flex align-items-center gap-2" onclick="selectSample('plastic_bottle')">
+                            <span class="fs-4">🧴</span>
+                            <div>
+                                <div class="fw-bold">Plastic Bottle</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">Dry Recyclable</div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-6 col-sm-4">
+                        <button type="button" class="btn btn-outline-success w-100 p-2 text-start small d-flex align-items-center gap-2" onclick="selectSample('banana_peel')">
+                            <span class="fs-4">🍌</span>
+                            <div>
+                                <div class="fw-bold">Banana Peel</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">Biodegradable</div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-6 col-sm-6">
+                        <button type="button" class="btn btn-outline-danger w-100 p-2 text-start small d-flex align-items-center gap-2" onclick="selectSample('circuit_board')">
+                            <span class="fs-4">📟</span>
+                            <div>
+                                <div class="fw-bold">Circuit Board</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">Hazardous / E-Waste</div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div class="col-6 col-sm-6">
+                        <button type="button" class="btn btn-outline-primary w-100 p-2 text-start small d-flex align-items-center gap-2" onclick="selectSample('newspaper')">
+                            <span class="fs-4">📰</span>
+                            <div>
+                                <div class="fw-bold">Newspaper</div>
+                                <div class="text-muted" style="font-size: 0.7rem;">Dry Recyclable</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side: Classification Rules Info -->
+        <div class="col-lg-4 mt-4 mt-lg-0">
+            <div class="card eco-card h-100 p-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-info-circle text-success me-2"></i> How AI Segregation Works</h5>
+                <p class="text-muted small">
+                    SmartWasteX inspects spatial patterns, structural edges, and RGB/HSV color spectrum distribution using OpenCV algorithms before assigning item attributes.
+                </p>
+
+                <div class="mt-3">
+                    <h6 class="fw-bold small text-uppercase text-muted">Institutional Streams</h6>
+                    <ul class="list-unstyled small mt-2">
+                        <li class="mb-3 d-flex gap-2">
+                            <span class="badge bg-success-subtle text-success p-2 rounded-circle"><i class="bi bi-tree-fill"></i></span>
+                            <div>
+                                <strong>Biodegradable</strong>
+                                <p class="text-muted mb-0">Food leftovers, fruit peels, compostable leaves. Routed to campus biogas facility (+5 credits).</p>
+                            </div>
+                        </li>
+                        <li class="mb-3 d-flex gap-2">
+                            <span class="badge bg-primary-subtle text-primary p-2 rounded-circle"><i class="bi bi-recycle"></i></span>
+                            <div>
+                                <strong>Dry Recyclable</strong>
+                                <p class="text-muted mb-0">Clean plastics, metal cans, paper cups, cardboards. Compacted for industrial recovery (+10 credits).</p>
+                            </div>
+                        </li>
+                        <li class="d-flex gap-2">
+                            <span class="badge bg-danger-subtle text-danger p-2 rounded-circle"><i class="bi bi-cpu-fill"></i></span>
+                            <div>
+                                <strong>Hazardous / E-Waste</strong>
+                                <p class="text-muted mb-0">Lithium batteries, electronic scrap, wiring. Enrolled in digital passport chain (+25 credits).</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="alert alert-secondary small mt-auto mb-0 bg-light border-0">
+                    <i class="bi bi-award-fill text-warning me-1"></i> Credits are awarded immediately upon confirming responsible disposal at the smart receptacle.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

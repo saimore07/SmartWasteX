@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+
+{% block title %}Collection Dispatch & Overflow Queue — SmartWasteX{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle px-3 py-1 rounded-pill fw-bold">
+                    <i class="bi bi-truck me-1"></i> Logistics & Operations
+                </span>
+                {% if pending_count > 0 %}
+                    <span class="badge bg-danger rounded-pill">{{ pending_count }} Pending Dispatch</span>
+                {% endif %}
+            </div>
+            <h1 class="display-6 fw-bold mb-0 brand-font">Smart-Bin Collection Queue</h1>
+            <p class="text-muted small mb-0">Automated tickets triggered by IoT telemetry thresholds and manual campus dispatches.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('bins.admin_bins') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-broadcast me-1"></i> Telemetry Matrix
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Pills -->
+    <div class="d-flex gap-2 mb-4 overflow-auto pb-1">
+        <a href="{{ url_for('bins.admin_collections') }}" class="btn btn-sm {% if not current_filter %}btn-dark{% else %}btn-outline-secondary{% endif %} rounded-pill px-3">
+            All Tickets ({{ requests|length }})
+        </a>
+        <a href="{{ url_for('bins.admin_collections', status='PENDING') }}" class="btn btn-sm {% if current_filter == 'PENDING' %}btn-danger{% else %}btn-outline-danger{% endif %} rounded-pill px-3">
+            Pending ({{ pending_count }})
+        </a>
+        <a href="{{ url_for('bins.admin_collections', status='ASSIGNED') }}" class="btn btn-sm {% if current_filter == 'ASSIGNED' %}btn-warning{% else %}btn-outline-warning text-dark{% endif %} rounded-pill px-3">
+            Assigned
+        </a>
+        <a href="{{ url_for('bins.admin_collections', status='COLLECTED') }}" class="btn btn-sm {% if current_filter == 'COLLECTED' %}btn-primary{% else %}btn-outline-primary{% endif %} rounded-pill px-3">
+            Collected
+        </a>
+        <a href="{{ url_for('bins.admin_collections', status='COMPLETED') }}" class="btn btn-sm {% if current_filter == 'COMPLETED' %}btn-success{% else %}btn-outline-success{% endif %} rounded-pill px-3">
+            Completed
+        </a>
+    </div>
+
+    <!-- Collection Requests Table -->
+    <div class="card eco-card shadow-sm border-0 overflow-hidden">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-muted">
+                        <tr>
+                            <th class="ps-4">Ticket Code</th>
+                            <th>Target Receptacle</th>
+                            <th>Campus Location</th>
+                            <th>Waste Stream</th>
+                            <th>Fill Telemetry</th>
+                            <th>Priority</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                            <th class="pe-4 text-end">Update Lifecycle</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if requests %}
+                            {% for r in requests %}
+                                <tr>
+                                    <td class="ps-4 fw-bold font-monospace text-dark">
+                                        {{ r.request_code }}
+                                    </td>
+                                    <td>
+                                        <div class="fw-semibold text-dark">{{ r.bin_id }}</div>
+                                        <small class="text-muted">{{ r.bin.name if r.bin else '' }}</small>
+                                    </td>
+                                    <td>
+                                        <i class="bi bi-geo-alt text-danger me-1"></i> {{ r.location }}
+                                    </td>
+                                    <td>
+                                        {% if 'E-Waste' in r.waste_type %}
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle">E-Waste</span>
+                                        {% elif 'Biodegradable' in r.waste_type %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle">Biodegradable</span>
+                                        {% else %}
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle">Recyclable</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <div class="progress" style="width: 60px; height: 8px;">
+                                                <div class="progress-bar {% if r.fill_level >= 100 %}bg-danger progress-bar-striped progress-bar-animated{% elif r.fill_level >= 85 %}bg-danger{% else %}bg-warning{% endif %}" style="width: {{ [r.fill_level, 100]|min }}%;"></div>
+                                            </div>
+                                            <strong class="small text-dark">{{ r.fill_level }}%</strong>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if r.priority == 'URGENT' %}
+                                            <span class="badge bg-danger py-1 px-2"><i class="bi bi-exclamation-octagon-fill me-1"></i> URGENT</span>
+                                        {% elif r.priority == 'HIGH' %}
+                                            <span class="badge bg-warning text-dark py-1 px-2">HIGH</span>
+                                        {% else %}
+                                            <span class="badge bg-secondary py-1 px-2">MEDIUM</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if r.status == 'PENDING' %}
+                                            <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill">PENDING</span>
+                                        {% elif r.status == 'ASSIGNED' %}
+                                            <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill">ASSIGNED</span>
+                                        {% elif r.status == 'COLLECTED' %}
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">COLLECTED</span>
+                                        {% else %}
+                                            <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">COMPLETED</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="small text-muted">
+                                        {{ r.created_at.strftime('%b %d, %H:%M') }}
+                                    </td>
+                                    <td class="pe-4 text-end">
+                                        <!-- Update status form -->
+                                        <form method="POST" action="{{ url_for('bins.update_collection_status', req_id=r.id) }}" class="d-inline-flex gap-1">
+                                            {% if r.status == 'PENDING' %}
+                                                <input type="hidden" name="status" value="ASSIGNED">
+                                                <button type="submit" class="btn btn-warning btn-sm py-1 px-2 text-dark">Assign Crew</button>
+                                            {% elif r.status == 'ASSIGNED' %}
+                                                <input type="hidden" name="status" value="COLLECTED">
+                                                <button type="submit" class="btn btn-primary btn-sm py-1 px-2">Mark Collected</button>
+                                            {% elif r.status == 'COLLECTED' %}
+                                                <input type="hidden" name="status" value="COMPLETED">
+                                                <button type="submit" class="btn btn-success btn-sm py-1 px-2">Complete & Empty</button>
+                                            {% else %}
+                                                <span class="text-success small fw-bold"><i class="bi bi-check2-all"></i> Resolved</span>
+                                            {% endif %}
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5 text-muted">
+                                    <i class="bi bi-check-circle-fill text-success fs-1 d-block mb-2"></i>
+                                    No collection tickets found matching this filter.
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

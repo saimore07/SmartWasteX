@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Asset {{ asset.asset_id }} — SmartWasteX{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{{ url_for('admin.dashboard') }}" class="text-decoration-none text-muted">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{{ url_for('ewaste.admin_ewaste') }}" class="text-decoration-none text-muted">E-Waste Registry</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ asset.asset_id }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-danger-subtle text-danger border border-danger-subtle px-3 py-1 rounded-pill fw-bold">
+                    Asset Passport
+                </span>
+                <span class="font-monospace text-muted">{{ asset.asset_id }}</span>
+            </div>
+            <h1 class="display-6 fw-bold mb-0 brand-font">{{ asset.device_name }}</h1>
+            <p class="text-muted small mb-0">{{ asset.category }} • Serial: {{ asset.serial_number or 'N/A' }} • Location: {{ asset.location }}</p>
+        </div>
+        <div>
+            <a href="{{ url_for('ewaste.public_ewaste_passport', asset_id=asset.asset_id) }}" target="_blank" class="btn btn-outline-success">
+                <i class="bi bi-box-arrow-up-right me-1"></i> Open Public Digital Passport
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content Grid -->
+    <div class="row g-4">
+        <!-- Left: Lifecycle Management & Timeline -->
+        <div class="col-lg-8">
+            <!-- Stepper Progress Bar -->
+            <div class="card eco-card p-4 mb-4">
+                <h6 class="fw-bold text-dark text-uppercase small mb-4">Circular Lifecycle Provenance</h6>
+                
+                <div class="lifecycle-stepper">
+                    {% for st in stages %}
+                        {% set is_past_or_current = (st in logged_statuses) %}
+                        {% set is_current = (st == asset.current_status) %}
+                        <div class="stepper-step {% if is_current %}step-active{% elif is_past_or_current %}step-completed{% endif %}">
+                            <div class="step-icon-circle">
+                                {% if is_past_or_current %}
+                                    <i class="bi bi-check-lg"></i>
+                                {% else %}
+                                    {{ loop.index }}
+                                {% endif %}
+                            </div>
+                            <div class="step-label">{{ st.replace('_', ' ').title() }}</div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Advance Status Form -->
+            <div class="card eco-card p-4 mb-4">
+                <h5 class="fw-bold mb-3"><i class="bi bi-arrow-right-circle text-success me-2"></i> Update Lifecycle Status</h5>
+                <form method="POST" action="{{ url_for('ewaste.admin_ewaste_detail', asset_id=asset.asset_id) }}">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="nextStatus" class="form-label small fw-semibold text-muted text-uppercase">Target Lifecycle Stage</label>
+                            <select class="form-select" id="nextStatus" name="status" required>
+                                {% for st in stages %}
+                                    <option value="{{ st }}" {% if st == asset.current_status %}selected{% endif %}>
+                                        {{ st.replace('_', ' ') }} {% if st == asset.current_status %}(Current){% endif %}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="statusNotes" class="form-label small fw-semibold text-muted text-uppercase">Audit Verification Notes</label>
+                            <input type="text" class="form-control" id="statusNotes" name="notes" placeholder="e.g. Handed over to courier with batch ticket #4812">
+                        </div>
+                    </div>
+                    <div class="mt-3 text-end">
+                        <button type="submit" class="btn btn-emerald px-4">
+                            <i class="bi bi-save me-1"></i> Log Lifecycle Transition
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Complete Audit History Log -->
+            <div class="card eco-card">
+                <div class="card-header bg-transparent py-3 px-4 border-bottom">
+                    <h6 class="mb-0 fw-bold"><i class="bi bi-journal-text text-primary me-2"></i> Verified Audit Ledger</h6>
+                </div>
+                <div class="card-body p-4">
+                    <div class="timeline">
+                        {% for log in logs %}
+                            <div class="d-flex gap-3 mb-4 position-relative">
+                                <div class="rounded-circle bg-success text-white d-flex align-items-center justify-content-center flex-shrink-0" style="width: 36px; height: 36px;">
+                                    <i class="bi bi-check-lg"></i>
+                                </div>
+                                <div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <strong class="text-dark">{{ log.status.replace('_', ' ') }}</strong>
+                                        <span class="badge bg-light text-muted border small">{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                                    </div>
+                                    <p class="text-muted small mb-1 mt-1">{{ log.notes }}</p>
+                                    <small class="text-secondary">Logged by: <em>{{ log.updated_by }}</em></small>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: QR Code & Device Specifications Card -->
+        <div class="col-lg-4">
+            <!-- QR Passport Box -->
+            <div class="card eco-card p-4 text-center mb-4">
+                <span class="badge bg-light text-dark border px-3 py-1 rounded-pill small mb-3">Public QR Tag</span>
+                {% if asset.qr_code_filename %}
+                    <div class="p-3 bg-white rounded border d-inline-block shadow-sm mb-3">
+                        <img src="{{ url_for('static', filename=asset.qr_code_filename) }}" alt="QR Code" class="img-fluid" style="max-width: 190px;">
+                    </div>
+                {% endif %}
+                <div class="fw-bold font-monospace text-dark fs-5 mb-1">{{ asset.asset_id }}</div>
+                <p class="text-muted small mb-3">Scannable by field technicians, auditors, and campus community.</p>
+                
+                <a href="{{ url_for('static', filename=asset.qr_code_filename) }}" download="{{ asset.asset_id }}_QR.png" class="btn btn-outline-secondary btn-sm w-100">
+                    <i class="bi bi-download me-1"></i> Download QR Asset Label
+                </a>
+            </div>
+
+            <!-- Device Specifications -->
+            <div class="card eco-card p-4">
+                <h6 class="fw-bold text-dark text-uppercase small mb-3">Device Technical Metadata</h6>
+                <dl class="row mb-0 small">
+                    <dt class="col-5 text-muted">Category:</dt>
+                    <dd class="col-7 fw-semibold text-dark">{{ asset.category }}</dd>
+
+                    <dt class="col-5 text-muted">Serial No:</dt>
+                    <dd class="col-7 font-monospace text-dark">{{ asset.serial_number or 'N/A' }}</dd>
+
+                    <dt class="col-5 text-muted">Campus Dept:</dt>
+                    <dd class="col-7 fw-semibold text-dark">{{ asset.location }}</dd>
+
+                    <dt class="col-5 text-muted">Tare Weight:</dt>
+                    <dd class="col-7 fw-semibold text-dark">{{ asset.weight_kg }} kg</dd>
+
+                    <dt class="col-5 text-muted">Recycler:</dt>
+                    <dd class="col-7 fw-semibold text-success">{{ asset.recycler }}</dd>
+
+                    <dt class="col-5 text-muted">Registered:</dt>
+                    <dd class="col-7 text-muted">{{ asset.created_at.strftime('%Y-%m-%d') }}</dd>
+                </dl>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

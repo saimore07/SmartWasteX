@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+
+{% block title %}Smart Bins Telemetry & Simulator — SmartWasteX{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+        <div>
+            <div class="d-flex align-items-center gap-2 mb-1">
+                <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill fw-bold">
+                    <i class="bi bi-broadcast me-1"></i> Virtual Sensor Network
+                </span>
+                <span class="badge bg-secondary-subtle text-secondary border">Simulated IoT Telemetry</span>
+            </div>
+            <h1 class="display-6 fw-bold mb-0 brand-font">Campus Smart-Bin Telemetry</h1>
+            <p class="text-muted small mb-0">
+                Ultrasonic depth sensors, load-cells, and temperature probes simulated for institutional waste receptacles.
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('bins.admin_collections') }}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-truck me-1"></i> Collection Dispatch Queue
+            </a>
+        </div>
+    </div>
+
+    <!-- Live Dynamic Alert Container for Simulator -->
+    <div id="liveAlertContainer">
+        {% if overflow_bins %}
+            {% for ob in overflow_bins %}
+                <div class="alert alert-danger alert-dismissible fade show shadow-sm" role="alert">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-exclamation-octagon-fill fs-4 me-3 text-danger"></i>
+                        <div>
+                            <strong>CRITICAL OVERFLOW ALERT</strong>: {{ ob.id }} ({{ ob.name }} at {{ ob.location }}) is at <strong>{{ ob.fill_percentage }}%</strong> capacity!
+                            <span class="badge bg-dark ms-2">Automated Ticket Created</span>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+
+    <!-- Bins Grid (4 Virtual Bins) -->
+    <div class="row g-4">
+        {% for b in bins %}
+            <div class="col-lg-6">
+                <div class="card eco-card h-100 overflow-hidden" id="bin-card-{{ b.id }}">
+                    <!-- Card Header -->
+                    <div class="card-header bg-transparent py-3 px-4 d-flex justify-content-between align-items-center border-bottom">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="fs-5 fw-bold text-dark">{{ b.id }}</span>
+                            <span class="text-muted">• {{ b.name }}</span>
+                        </div>
+                        <span id="status-badge-{{ b.id }}" class="badge {% if b.status == 'OVERFLOW' %}badge-eco-overflow{% elif b.status == 'HIGH' %}badge-eco-high{% elif b.status == 'WARNING' %}badge-eco-warning{% else %}badge-eco-normal{% endif %} px-3 py-2 fs-6">
+                            {{ b.status }}
+                        </span>
+                    </div>
+
+                    <div class="card-body p-4">
+                        <!-- Location & Waste Stream -->
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="text-muted small">
+                                <i class="bi bi-geo-alt-fill text-danger me-1"></i> {{ b.location }}
+                            </div>
+                            <div>
+                                {% if 'E-Waste' in b.waste_type %}
+                                    <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill">Hazardous / E-Waste</span>
+                                {% elif 'Biodegradable' in b.waste_type %}
+                                    <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">Biodegradable</span>
+                                {% else %}
+                                    <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">Dry Recyclable</span>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Fill Level Large Display -->
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-end mb-1">
+                                <span class="text-uppercase small fw-bold text-muted">Fill Capacity</span>
+                                <span class="fs-3 fw-bold text-dark" id="fill-text-{{ b.id }}">{{ b.fill_percentage }}%</span>
+                            </div>
+                            <div class="progress" style="height: 14px; border-radius: 8px;">
+                                <div id="fill-bar-{{ b.id }}" class="progress-bar {% if b.fill_percentage >= 100 %}bg-danger progress-bar-striped progress-bar-animated{% elif b.fill_percentage >= 85 %}bg-danger{% elif b.fill_percentage >= 70 %}bg-warning{% else %}bg-success{% endif %}" role="progressbar" style="width: {{ [b.fill_percentage, 100]|min }}%;" aria-valuenow="{{ b.fill_percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                        </div>
+
+                        <!-- Telemetry Sensors Matrix -->
+                        <div class="row g-2 mb-4 text-center">
+                            <div class="col-4">
+                                <div class="p-2 bg-light rounded-2 border">
+                                    <span class="text-muted small d-block">Weight</span>
+                                    <strong class="fs-6 text-dark" id="weight-{{ b.id }}">{{ b.weight_kg }} kg</strong>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-2 bg-light rounded-2 border">
+                                    <span class="text-muted small d-block">Temperature</span>
+                                    <strong class="fs-6 text-dark" id="temp-{{ b.id }}">{{ b.temperature_c }} °C</strong>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="p-2 bg-light rounded-2 border">
+                                    <span class="text-muted small d-block">Node Battery</span>
+                                    <strong class="fs-6 text-dark" id="battery-{{ b.id }}">{{ b.battery_level }}%</strong>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Predictive Collection Calculation Box -->
+                        <div class="alert alert-secondary bg-light border p-3 mb-4">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-clock-history text-primary fs-5"></i>
+                                <div>
+                                    <div class="fw-bold small text-dark">Predictive Collection Estimation</div>
+                                    <div class="small text-muted" id="estimate-{{ b.id }}">
+                                        {% if b.fill_percentage >= 100 %}
+                                            <span class="text-danger fw-bold">Collection urgently required now!</span>
+                                        {% elif b.estimate_hours_to_full() > 0 %}
+                                            Collection recommended within approximately <strong>{{ b.estimate_hours_to_full() }} hours</strong>.
+                                        {% else %}
+                                            Collection recommended immediately.
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-muted" style="font-size: 0.7rem;">* Estimated using recent simulated telemetry.</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Interactive Simulator Controls -->
+                        <div class="p-3 bg-light rounded-3 border">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <span class="small fw-bold text-uppercase text-muted">
+                                    <i class="bi bi-sliders text-success me-1"></i> Hardware Sensor Controls
+                                </span>
+                                <span class="badge bg-white text-muted border small">Live DB Write</span>
+                            </div>
+                            
+                            <!-- Simulation Action Buttons -->
+                            <div class="d-flex flex-wrap gap-2">
+                                <button type="button" class="btn btn-outline-success btn-sm flex-grow-1" onclick="simulateBin('{{ b.id }}', 'plus_10', this)">
+                                    +10% Fill
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1" onclick="simulateBin('{{ b.id }}', 'minus_10', this)">
+                                    -10% Fill
+                                </button>
+                                <button type="button" class="btn btn-outline-primary btn-sm flex-grow-1" onclick="simulateBin('{{ b.id }}', 'random', this)">
+                                    Random Reading
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm flex-grow-1" onclick="simulateBin('{{ b.id }}', 'empty', this)">
+                                    Empty Bin
+                                </button>
+                                <button type="button" class="btn btn-danger btn-sm" onclick="simulateBin('{{ b.id }}', 'set_fill', this, 100)" title="Push to 100% to test urgent overflow trigger!">
+                                    Push to 100%
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-footer bg-white border-top py-2 px-4 text-muted small d-flex justify-content-between align-items-center">
+                        <span>Rate: ~{{ b.estimated_fill_rate }}% / hr</span>
+                        <span>Updated: {{ b.last_updated.strftime('%H:%M:%S') if b.last_updated else 'Just now' }}</span>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/bins.js') }}"></script>
+<script>
+    // Helper to push to 100% directly
+    const origSimulate = window.simulateBin;
+    window.simulateBin = function(binId, action, buttonEl, extraVal) {
+        if (action === 'set_fill') {
+            fetch(`/api/bins/${binId}/simulate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'set_fill', fill: 100.0 })
+            }).then(r => r.json()).then(data => {
+                if (data.success) location.reload();
+            });
+            return;
+        }
+        origSimulate(binId, action, buttonEl);
+    };
+</script>
+{% endblock %}

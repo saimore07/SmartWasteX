@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+
+{% block title %}Campus Green Champions — SmartWasteX Leaderboard{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="text-center mb-5">
+        <span class="badge bg-warning-subtle text-warning-emphasis px-3 py-1 rounded-pill fw-bold mb-2">
+            <i class="bi bi-trophy-fill text-warning me-1"></i> Community Engagement
+        </span>
+        <h1 class="display-6 fw-bold brand-font">Campus Green Champions</h1>
+        <p class="text-muted col-lg-6 mx-auto">
+            Recognizing university students and faculty leading the transition toward zero-waste circular campus practices.
+        </p>
+    </div>
+
+    <!-- User Current Standing Banner -->
+    <div class="card eco-card shadow-sm border-0 mb-4 p-4" style="background: linear-gradient(135deg, #064e3b 0%, #065f46 100%); color: white;">
+        <div class="row align-items-center g-3">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="rounded-circle bg-white text-success d-flex align-items-center justify-content-center fw-bold fs-4 shadow" style="width: 58px; height: 58px;">
+                        #{{ current_rank }}
+                    </div>
+                    <div>
+                        <div class="d-flex align-items-center gap-2">
+                            <h4 class="fw-bold mb-0 text-white">{{ current_user.name }}</h4>
+                            <span class="badge bg-success-subtle text-success">You</span>
+                        </div>
+                        <p class="text-light text-opacity-75 small mb-0">
+                            Current Standing • Keep segregating waste to climb into the top 3!
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4 text-md-end">
+                <div class="d-inline-flex gap-4 bg-black bg-opacity-25 px-4 py-2 rounded-pill">
+                    <div>
+                        <span class="small text-light text-opacity-75 d-block">Credits</span>
+                        <strong class="fs-5 text-warning">{{ current_user.green_credits }}</strong>
+                    </div>
+                    <div class="border-start border-white border-opacity-25 ps-3">
+                        <span class="small text-light text-opacity-75 d-block">Items</span>
+                        <strong class="fs-5 text-white">{{ current_user.items_recycled }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaderboard Table -->
+    <div class="card eco-card overflow-hidden">
+        <div class="card-header bg-transparent py-3 px-4 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 fw-bold"><i class="bi bi-award-fill text-warning me-2"></i> Real-Time Campus Standings</h5>
+            <span class="text-muted small">Updated live from database</span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light small text-uppercase text-muted">
+                        <tr>
+                            <th class="ps-4" style="width: 80px;">Rank</th>
+                            <th>Student / Contributor</th>
+                            <th>Total Green Credits</th>
+                            <th>Items Segregated</th>
+                            <th>Waste Diverted</th>
+                            <th class="pe-4 text-end">Eco Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for champ in champions %}
+                            {% set is_me = (champ.id == current_user.id) %}
+                            <tr class="{% if is_me %}table-success bg-opacity-25 fw-semibold border-start border-4 border-success{% endif %}">
+                                <td class="ps-4">
+                                    {% if loop.index == 1 %}
+                                        <span class="fs-4">🥇</span>
+                                    {% elif loop.index == 2 %}
+                                        <span class="fs-4">🥈</span>
+                                    {% elif loop.index == 3 %}
+                                        <span class="fs-4">🥉</span>
+                                    {% else %}
+                                        <span class="badge bg-light text-muted border px-2 py-1 fs-6">#{{ loop.index }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="rounded-circle bg-light text-dark fw-bold d-flex align-items-center justify-content-center border" style="width: 38px; height: 38px; font-size: 0.85rem;">
+                                            {{ champ.name[:2].upper() }}
+                                        </div>
+                                        <div>
+                                            <div class="text-dark">{{ champ.name }} {% if is_me %}<span class="badge bg-success ms-1">You</span>{% endif %}</div>
+                                            <small class="text-muted">{{ champ.email }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="fw-bold text-success fs-6"><i class="bi bi-stars text-warning me-1"></i> {{ champ.green_credits }}</span>
+                                </td>
+                                <td>{{ champ.items_recycled }} items</td>
+                                <td>{{ "%.1f"|format(champ.waste_diverted_kg) }} kg</td>
+                                <td class="pe-4 text-end">
+                                    {% if champ.green_credits >= 400 %}
+                                        <span class="badge bg-success-subtle text-success border border-success-subtle rounded-pill">Campus Champion</span>
+                                    {% elif champ.green_credits >= 300 %}
+                                        <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">Eco Ambassador</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill">Active Recycler</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

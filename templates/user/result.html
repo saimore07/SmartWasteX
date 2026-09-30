@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}AI Waste Analysis Result — SmartWasteX{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+            <!-- Breadcrumb Navigation -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('user.dashboard') }}" class="text-decoration-none text-muted">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('waste.scan') }}" class="text-decoration-none text-muted">Scan</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">AI Analysis</li>
+                </ol>
+            </nav>
+
+            <!-- Main Analysis Card -->
+            <div class="card eco-card shadow-lg border-0 overflow-hidden">
+                <!-- Header -->
+                <div class="card-header bg-dark text-white p-4 text-center position-relative" style="background: var(--dark-gradient) !important;">
+                    <span class="badge bg-success-subtle text-success text-uppercase px-3 py-1 rounded-pill fw-bold mb-2">
+                        <i class="bi bi-cpu-fill me-1"></i> Computer Vision Classification
+                    </span>
+                    <h2 class="h3 fw-bold mb-0 brand-font text-white">AI Waste Analysis</h2>
+                </div>
+
+                <div class="card-body p-4 p-md-5">
+                    <!-- Image and Detected Header -->
+                    <div class="text-center mb-4">
+                        {% if scan.image_filename %}
+                            <div class="preview-img-container mb-3 shadow" style="max-width: 260px; max-height: 260px;">
+                                <img src="{{ url_for('static', filename='uploads/' + scan.image_filename) }}" alt="Analyzed item" class="img-fluid rounded">
+                            </div>
+                        {% endif %}
+
+                        <h3 class="display-6 fw-bold mb-1 text-dark">{{ scan.detected_item }}</h3>
+                        
+                        <!-- Category Badge -->
+                        <div class="mt-2">
+                            {% if 'Hazardous' in scan.category or 'E-Waste' in scan.category %}
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle fs-6 px-3 py-2 rounded-pill">
+                                    <i class="bi bi-exclamation-triangle-fill me-1"></i> {{ scan.category }}
+                                </span>
+                            {% elif 'Biodegradable' in scan.category %}
+                                <span class="badge bg-success-subtle text-success border border-success-subtle fs-6 px-3 py-2 rounded-pill">
+                                    <i class="bi bi-tree-fill me-1"></i> {{ scan.category }}
+                                </span>
+                            {% else %}
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle fs-6 px-3 py-2 rounded-pill">
+                                    <i class="bi bi-recycle me-1"></i> {{ scan.category }}
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <!-- Metrics Breakdown -->
+                    <div class="row g-3 mb-4 text-center">
+                        <div class="col-4">
+                            <div class="p-3 bg-light rounded-3">
+                                <span class="text-muted small text-uppercase fw-semibold d-block">Confidence</span>
+                                <span class="fs-4 fw-bold text-success">{{ "%.0f"|format(scan.confidence) }}%</span>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-3 bg-light rounded-3">
+                                <span class="text-muted small text-uppercase fw-semibold d-block">Green Credits</span>
+                                <span class="fs-4 fw-bold text-warning">+{{ scan.credits_awarded }}</span>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-3 bg-light rounded-3">
+                                <span class="text-muted small text-uppercase fw-semibold d-block">Diverted Mass</span>
+                                <span class="fs-4 fw-bold text-primary">{{ scan.diverted_weight_kg }} kg</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Disposal Recommendation Box -->
+                    <div class="alert alert-light border border-2 p-3 mb-4">
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="fs-3 text-success"><i class="bi bi-lightbulb-fill"></i></div>
+                            <div>
+                                <h6 class="fw-bold mb-1 text-dark">Recommended Action</h6>
+                                <p class="text-muted small mb-0">{{ scan.recommendation }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Nearest Collection Point & Bin Status -->
+                    {% if bin %}
+                        <div class="card bg-light border-0 p-3 mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <div class="fw-bold text-dark small text-uppercase">
+                                    <i class="bi bi-geo-alt-fill text-danger me-1"></i> Nearest Smart Receptacle
+                                </div>
+                                <span class="badge {% if bin.status == 'OVERFLOW' %}badge-eco-overflow{% elif bin.status == 'HIGH' %}badge-eco-high{% elif bin.status == 'WARNING' %}badge-eco-warning{% else %}badge-eco-normal{% endif %}">
+                                    {{ bin.status }}
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <div class="fw-bold fs-6">{{ bin.name }} ({{ bin.id }})</div>
+                                    <small class="text-muted">{{ bin.location }} • Current Capacity: {{ bin.fill_percentage }}%</small>
+                                </div>
+                                <div class="progress" style="width: 80px; height: 10px;">
+                                    <div class="progress-bar {% if bin.fill_percentage >= 85 %}bg-danger{% elif bin.fill_percentage >= 70 %}bg-warning{% else %}bg-success{% endif %}" style="width: {{ bin.fill_percentage }}%;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+
+                    <!-- Action Button -->
+                    {% if scan.status == 'SCANNED' %}
+                        <form method="POST" action="{{ url_for('waste.confirm_disposal', scan_id=scan.id) }}">
+                            <button type="submit" class="btn btn-emerald w-100 py-3 fs-5 fw-bold shadow">
+                                <i class="bi bi-check-circle-fill me-2"></i> Dispose Responsibly & Claim +{{ scan.credits_awarded }} Credits
+                            </button>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-success border-success text-center py-3 mb-0">
+                            <i class="bi bi-check2-circle fs-3 d-block text-success mb-1"></i>
+                            <h5 class="fw-bold mb-1">Disposal Successfully Confirmed!</h5>
+                            <p class="small mb-3">Green credits have been credited to your campus account.</p>
+                            <div class="d-flex justify-content-center gap-2">
+                                <a href="{{ url_for('waste.scan') }}" class="btn btn-outline-success btn-sm">Scan Another Item</a>
+                                <a href="{{ url_for('user.dashboard') }}" class="btn btn-emerald btn-sm">Go to Dashboard</a>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="card-footer bg-light text-center py-3 border-top text-muted small">
+                    SmartWasteX Vision Classifier v1.2 • Verified for Institutional SDG 11 Compliance
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

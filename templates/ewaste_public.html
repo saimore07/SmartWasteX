@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-Waste Digital Passport — {{ asset.asset_id }}</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body style="background-color: #0f172a; color: #f8fafc;">
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+            <!-- Digital Passport Certificate Card -->
+            <div class="card border-0 shadow-lg overflow-hidden" style="background-color: #1e293b; color: #f8fafc; border-radius: 20px;">
+                <!-- Header Ribbon -->
+                <div class="p-4 text-center position-relative border-bottom border-secondary border-opacity-25" style="background: linear-gradient(135deg, #064e3b 0%, #0f172a 100%);">
+                    <div class="d-inline-flex align-items-center gap-2 bg-success bg-opacity-20 text-success border border-success border-opacity-25 px-3 py-1 rounded-pill small mb-2 fw-semibold">
+                        <i class="bi bi-patch-check-fill"></i> Verified Institutional Hardware Provenance
+                    </div>
+                    <h1 class="h3 fw-bold mb-1 brand-font text-white">E-WASTE DIGITAL PASSPORT</h1>
+                    <div class="font-monospace text-success fw-bold fs-5">{{ asset.asset_id }}</div>
+                </div>
+
+                <div class="card-body p-4 p-md-5">
+                    <!-- Device Primary Specs -->
+                    <div class="text-center mb-5">
+                        <div class="rounded-circle bg-dark border border-secondary border-opacity-50 text-success d-inline-flex align-items-center justify-content-center mb-3 shadow" style="width: 72px; height: 72px; font-size: 2.2rem;">
+                            <i class="bi bi-cpu-fill"></i>
+                        </div>
+                        <h2 class="h4 fw-bold text-white mb-1">{{ asset.device_name }}</h2>
+                        <div class="text-secondary small">
+                            Category: <strong class="text-light">{{ asset.category }}</strong> • 
+                            Serial: <span class="font-monospace text-light">{{ asset.serial_number or 'N/A' }}</span> • 
+                            Origin: <span class="text-light">{{ asset.location }}</span>
+                        </div>
+
+                        <!-- Current Status Badge -->
+                        <div class="mt-3">
+                            <span class="badge bg-success bg-opacity-25 text-success border border-success border-opacity-25 fs-6 px-4 py-2 rounded-pill fw-bold">
+                                Current Status: {{ asset.current_status.replace('_', ' ') }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Visual Lifecycle Timeline -->
+                    <div class="mb-5">
+                        <h6 class="text-uppercase small text-secondary fw-bold text-center mb-4">Circular Lifecycle Track & Trace</h6>
+
+                        <div class="lifecycle-stepper">
+                            {% for st in stages %}
+                                {% set is_logged = (st in logged_statuses) %}
+                                {% set is_current = (st == asset.current_status) %}
+                                <div class="stepper-step {% if is_current %}step-active{% elif is_logged %}step-completed{% endif %}">
+                                    <div class="step-icon-circle" style="background-color: {% if is_logged %}#10b981{% else %}#334155{% endif %}; border-color: {% if is_logged %}#10b981{% else %}#475569{% endif %}; color: white;">
+                                        {% if is_logged %}
+                                            <i class="bi bi-check-lg"></i>
+                                        {% else %}
+                                            ○
+                                        {% endif %}
+                                    </div>
+                                    <div class="step-label text-light opacity-75" style="font-size: 0.75rem;">
+                                        {{ st.replace('_', ' ').title() }}
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Verified Custody Ledger -->
+                    <div class="bg-dark bg-opacity-50 p-4 rounded-3 border border-secondary border-opacity-25 mb-4">
+                        <h6 class="fw-bold text-light mb-3"><i class="bi bi-shield-shaded text-success me-2"></i> Verified Custody Ledger</h6>
+                        <div class="timeline">
+                            {% for log in logs %}
+                                <div class="d-flex gap-3 mb-3">
+                                    <i class="bi bi-check-circle-fill text-success fs-5"></i>
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <strong class="text-white small">{{ log.status.replace('_', ' ') }}</strong>
+                                            <small class="text-secondary">{{ log.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+                                        </div>
+                                        <p class="text-secondary small mb-0">{{ log.notes }}</p>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Recycler & Compliance Credentials -->
+                    <div class="row g-3 text-center small text-secondary">
+                        <div class="col-6">
+                            <div class="p-3 bg-dark bg-opacity-25 rounded border border-secondary border-opacity-25">
+                                <span class="d-block text-muted">Authorized Recycler</span>
+                                <strong class="text-light">{{ asset.recycler }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="p-3 bg-dark bg-opacity-25 rounded border border-secondary border-opacity-25">
+                                <span class="d-block text-muted">SDG 11 Compliance</span>
+                                <strong class="text-success"><i class="bi bi-check2-circle"></i> Certified Clean R2</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer with Platform Link -->
+                <div class="card-footer bg-dark bg-opacity-75 py-3 text-center border-top border-secondary border-opacity-25">
+                    <span class="text-secondary small">SmartWasteX Open Circular Economy Ledger</span> • 
+                    <a href="{{ url_for('auth.login') }}" class="text-success text-decoration-none small fw-semibold ms-1">
+                        Go to Platform <i class="bi bi-arrow-right"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
