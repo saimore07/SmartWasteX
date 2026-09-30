@@ -38,18 +38,20 @@ def login():
         return redirect(url_for('user.dashboard'))
 
     if request.method == 'POST':
-        email = request.form.get('email', '').strip().lower()
+        login_input = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '').strip()
 
-        if not email or not password:
-            flash('Both email and password are required.', 'danger')
-            return render_template('login.html', email=email)
+        if not login_input or not password:
+            flash('Both username/email and password are required.', 'danger')
+            return render_template('login.html', email=login_input)
 
-        user = User.query.filter_by(email=email).first()
+        user = User.query.filter(
+            (User.email == login_input) | (User.email == f"{login_input}@smartwastex.in")
+        ).first()
 
         if not user or not user.check_password(password):
             flash('Invalid email or password. Please check your credentials.', 'danger')
-            return render_template('login.html', email=email)
+            return render_template('login.html', email=login_input)
 
         # Store session
         session['user_id'] = user.id

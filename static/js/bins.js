@@ -106,4 +106,19 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
+    // Lightweight live polling: Fetch /api/bins every 3 seconds so judges see simulator updates in real time
+    setInterval(async () => {
+        try {
+            const res = await fetch('/api/bins');
+            if (res.ok) {
+                const bins = await res.json();
+                bins.forEach(b => {
+                    updateBinCardUI(b.id, b);
+                });
+            }
+        } catch (e) {
+            // Silently ignore temporary network jitter during live presentations
+        }
+    }, 3000);
 });

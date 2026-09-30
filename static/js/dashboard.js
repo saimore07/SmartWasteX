@@ -186,4 +186,49 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+
+    // Live Dashboard Polling for Bins Table
+    setInterval(async () => {
+        try {
+            const res = await fetch('/api/bins');
+            if (res.ok) {
+                const bins = await res.json();
+                bins.forEach(b => {
+                    const textEl = document.getElementById(`dash-fill-text-${b.id}`);
+                    const barEl = document.getElementById(`dash-fill-bar-${b.id}`);
+                    const badgeEl = document.getElementById(`dash-status-badge-${b.id}`);
+
+                    if (textEl) textEl.textContent = `${b.fill_percentage}%`;
+                    if (barEl) {
+                        barEl.style.width = `${Math.min(100, b.fill_percentage)}%`;
+                        barEl.className = 'progress-bar';
+                        if (b.fill_percentage >= 100) {
+                            barEl.classList.add('bg-danger', 'progress-bar-striped', 'progress-bar-animated');
+                        } else if (b.fill_percentage >= 85) {
+                            barEl.classList.add('bg-danger');
+                        } else if (b.fill_percentage >= 70) {
+                            barEl.classList.add('bg-warning');
+                        } else {
+                            barEl.classList.add('bg-success');
+                        }
+                    }
+                    if (badgeEl) {
+                        badgeEl.className = 'badge';
+                        badgeEl.textContent = b.status;
+                        if (b.status === 'OVERFLOW') {
+                            badgeEl.classList.add('badge-eco-overflow');
+                        } else if (b.status === 'HIGH') {
+                            badgeEl.classList.add('badge-eco-high');
+                        } else if (b.status === 'WARNING') {
+                            badgeEl.classList.add('badge-eco-warning');
+                        } else {
+                            badgeEl.classList.add('badge-eco-normal');
+                        }
+                    }
+                });
+            }
+        } catch (e) {
+            // Silently ignore temporary polling jitter
+        }
+    }, 3000);
 });

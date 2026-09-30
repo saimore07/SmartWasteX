@@ -210,13 +210,13 @@
                                         <td style="min-width: 140px;">
                                             <div class="d-flex align-items-center gap-2">
                                                 <div class="progress flex-grow-1" style="height: 8px;">
-                                                    <div class="progress-bar {% if b.fill_percentage >= 100 %}bg-danger progress-bar-striped progress-bar-animated{% elif b.fill_percentage >= 85 %}bg-danger{% elif b.fill_percentage >= 70 %}bg-warning{% else %}bg-success{% endif %}" style="width: {{ [b.fill_percentage, 100]|min }}%;"></div>
+                                                    <div id="dash-fill-bar-{{ b.id }}" class="progress-bar {% if b.fill_percentage >= 100 %}bg-danger progress-bar-striped progress-bar-animated{% elif b.fill_percentage >= 85 %}bg-danger{% elif b.fill_percentage >= 70 %}bg-warning{% else %}bg-success{% endif %}" style="width: {{ [b.fill_percentage, 100]|min }}%;"></div>
                                                 </div>
-                                                <small class="fw-bold">{{ b.fill_percentage }}%</small>
+                                                <small class="fw-bold" id="dash-fill-text-{{ b.id }}">{{ b.fill_percentage }}%</small>
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="badge {% if b.status == 'OVERFLOW' %}badge-eco-overflow{% elif b.status == 'HIGH' %}badge-eco-high{% elif b.status == 'WARNING' %}badge-eco-warning{% else %}badge-eco-normal{% endif %}">
+                                            <span id="dash-status-badge-{{ b.id }}" class="badge {% if b.status == 'OVERFLOW' %}badge-eco-overflow{% elif b.status == 'HIGH' %}badge-eco-high{% elif b.status == 'WARNING' %}badge-eco-warning{% else %}badge-eco-normal{% endif %}">
                                                 {{ b.status }}
                                             </span>
                                         </td>

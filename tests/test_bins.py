@@ -72,3 +72,33 @@ def test_empty_bin_resets_and_resolves_tickets(admin_client):
     # Check ticket is completed
     completed_reqs = CollectionRequest.query.filter_by(bin_id='BIN-04', status='COMPLETED').all()
     assert len(completed_reqs) > 0
+
+def test_iot_bin_update_api(admin_client):
+    """Test public IoT gateway endpoint for external hardware sensor simulator."""
+    # Test setting fill level
+    response = admin_client.post('/api/iot/bin-update', json={
+        'bin_id': 'BIN-02',
+        'fill_level': 75.5
+    })
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['success'] is True
+    assert data['bin_id'] == 'BIN-02'
+    assert data['fill_level'] == 75.5
+    assert data['status'] == 'WARNING'
+
+    # Test padded bin ID resolution (e.g. BIN-002 -> BIN-02)
+    response_padded = admin_client.post('/api/iot/bin-update', json={
+        'bin_id': 'BIN-002',
+        'fill_level': 88.0
+    })
+    assert response_padded.status_code == 200
+    assert response_padded.get_json()['status'] == 'HIGH'
+
+    # Test empty action
+    empty_resp = admin_client.post('/api/iot/bin-update', json={
+        'bin_id': 'BIN-02',
+        'action': 'empty'
+    })
+    assert empty_resp.status_code == 200
+    assert empty_resp.get_json()['fill_level'] == 0.0

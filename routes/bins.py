@@ -57,6 +57,74 @@ def api_bins():
     bins_list = Bin.query.order_by(Bin.id.asc()).all()
     return jsonify([b.to_dict() for b in bins_list])
 
+@bins_bp.route('/api/iot/bin-update', methods=['POST'])
+def api_iot_bin_update():
+    """
+    Public IoT Gateway Endpoint for External Hardware Sensor Telemetry.
+    Receives JSON telemetry payloads from physical smart bins or simulator.
+    """
+    data = request.get_json(silent=True) or request.form
+    if not data:
+        return jsonify({'success': False, 'error': 'JSON payload required'}), 400
+
+    raw_bin_id = str(data.get('bin_id', '')).strip().upper()
+    if not raw_bin_id:
+        return jsonify({'success': False, 'error': 'bin_id is required'}), 400
+
+    # Match bin ID directly or try zero-padded variant (BIN-1 -> BIN-01, BIN-001 -> BIN-01)
+    bin_obj = db.session.get(Bin, raw_bin_id)
+    if not bin_obj and raw_bin_id.startswith('BIN-'):
+        num_part = raw_bin_id.split('-')[-1]
+        try:
+            padded_id = f"BIN-{int(num_part):02d}"
+            bin_obj = db.session.get(Bin, padded_id)
+        except ValueError:
+            pass
+
+    if not bin_obj:
+        return jsonify({'success': False, 'error': f"Bin '{raw_bin_id}' not found"}), 404
+
+    action = data.get('action')
+    if action == 'empty':
+        bin_obj, alert_info = IoTSimulator.empty_bin(bin_obj.id)
+        return jsonify({
+            'success': True,
+            'bin_id': bin_obj.id,
+            'fill_level': bin_obj.fill_percentage,
+            'status': bin_obj.status,
+            'weight_kg': bin_obj.weight_kg,
+            'temperature_c': bin_obj.temperature_c,
+            'battery_level': bin_obj.battery_level,
+            'action': 'emptied'
+        })
+
+    # Read fill level from payload (supports fill_level, fill_percentage, or fill)
+    fill_val = data.get('fill_level')
+    if fill_val is None:
+        fill_val = data.get('fill_percentage', data.get('fill'))
+
+    if fill_val is None:
+        return jsonify({'success': False, 'error': 'fill_level is required'}), 400
+
+    try:
+        fill_val = float(fill_val)
+        fill_val = max(0.0, min(100.0, fill_val))
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'fill_level must be a numeric value'}), 400
+
+    bin_obj, alert_info = IoTSimulator.update_bin_telemetry(bin_obj, fill_val)
+
+    return jsonify({
+        'success': True,
+        'bin_id': bin_obj.id,
+        'fill_level': bin_obj.fill_percentage,
+        'status': bin_obj.status,
+        'weight_kg': bin_obj.weight_kg,
+        'temperature_c': bin_obj.temperature_c,
+        'battery_level': bin_obj.battery_level,
+        'alert': alert_info
+    })
+
 @bins_bp.route('/api/bins/<bin_id>/simulate', methods=['POST'])
 @login_required
 @role_required('admin')

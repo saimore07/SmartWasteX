@@ -73,3 +73,21 @@ def test_health_check(client):
     response = client.get('/health')
     assert response.status_code == 200
     assert response.get_json() == {'status': 'ok'}
+
+def test_public_homepage(client):
+    """Verify public homepage loads at root / with expected content."""
+    response = client.get('/')
+    assert response.status_code == 200
+    assert b"SmartWaste" in response.data
+    assert b"cleaner campuses and smarter cities" in response.data
+    assert b"Login" in response.data
+    assert b"Explore SmartWasteX" in response.data
+
+def test_login_with_username_prefix(client):
+    """Verify user can log in with username prefix without domain."""
+    response = client.post('/login', data={
+        'email': 'user1',
+        'password': 'user1@123'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Welcome back, Rahul" in response.data
