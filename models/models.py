@@ -232,7 +232,9 @@ class CollectionRequest(db.Model):
     location = db.Column(db.String(100), nullable=False)
     fill_level = db.Column(db.Float, nullable=False)
     priority = db.Column(db.String(20), default='HIGH', nullable=False)  # 'MEDIUM', 'HIGH', 'URGENT'
-    status = db.Column(db.String(30), default='PENDING', nullable=False)  # 'PENDING', 'ASSIGNED', 'COLLECTED', 'COMPLETED'
+    status = db.Column(db.String(30), default='PENDING', nullable=False)  # 'PENDING', 'SCHEDULED', 'ASSIGNED', 'COLLECTED', 'COMPLETED'
+    scheduled_date = db.Column(db.String(50), nullable=True)
+    scheduled_time = db.Column(db.String(50), nullable=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
     resolved_at = db.Column(db.DateTime, nullable=True)
 
@@ -246,6 +248,8 @@ class CollectionRequest(db.Model):
             'fill_level': round(self.fill_level, 1),
             'priority': self.priority,
             'status': self.status,
+            'scheduled_date': self.scheduled_date,
+            'scheduled_time': self.scheduled_time,
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M') if self.created_at else '',
             'resolved_at': self.resolved_at.strftime('%Y-%m-%d %H:%M') if self.resolved_at else None
         }

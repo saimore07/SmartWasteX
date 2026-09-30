@@ -54,7 +54,7 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link-custom {% if 'ewaste' in request.endpoint %}active{% endif %}" href="{{ url_for('ewaste.admin_ewaste') }}">
+                            <a class="nav-link-custom {% if request.endpoint and 'ewaste' in request.endpoint %}active{% endif %}" href="{{ url_for('ewaste.admin_ewaste') }}">
                                 <i class="bi bi-cpu"></i> E-Waste
                             </a>
                         </li>
@@ -145,8 +145,11 @@
                             </ul>
                         </div>
                     {% else %}
-                        <a href="{{ url_for('auth.login') }}" class="btn btn-emerald btn-sm px-4">
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-light btn-sm px-3">
                             <i class="bi bi-box-arrow-in-right me-1"></i> Login
+                        </a>
+                        <a href="{{ url_for('auth.signup') }}" class="btn btn-emerald btn-sm px-3">
+                            <i class="bi bi-person-plus me-1"></i> Sign Up
                         </a>
                     {% endif %}
                 </div>

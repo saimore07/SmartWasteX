@@ -37,15 +37,15 @@
         <div class="col-sm-6 col-xl-3">
             <div class="card eco-card stat-card h-100">
                 <span class="stat-label">Landfill Diversion Rate</span>
-                <div class="stat-val text-primary my-1">82.4%</div>
-                <small class="text-muted">Target: 85% by end of year</small>
+                <div class="stat-val text-primary my-1">{{ metrics.segregation_accuracy }}%</div>
+                <small class="text-muted">Calculated from verified disposals</small>
             </div>
         </div>
         <div class="col-sm-6 col-xl-3">
             <div class="card eco-card stat-card h-100">
                 <span class="stat-label">E-Waste Circularity Index</span>
-                <div class="stat-val text-danger my-1">98.2%</div>
-                <small class="text-muted">Zero unauthorized hardware dumping</small>
+                <div class="stat-val text-danger my-1">{{ metrics.circularity_index }}%</div>
+                <small class="text-muted">Certified recycling & lifecycle custody</small>
             </div>
         </div>
         <div class="col-sm-6 col-xl-3">

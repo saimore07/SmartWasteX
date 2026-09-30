@@ -89,15 +89,16 @@ class IoTSimulator:
                 f"⚠️ High Fill Warning: {bin_obj.id} ({bin_obj.name}) is at {bin_obj.fill_percentage}%. Collection recommended."
             )
 
-            # Check if there is an active pending or assigned collection request already
+            # Check if there is an active pending, scheduled, assigned, or collected request already
             existing_request = CollectionRequest.query.filter(
                 CollectionRequest.bin_id == bin_obj.id,
-                CollectionRequest.status.in_(['PENDING', 'ASSIGNED'])
+                CollectionRequest.status.in_(['PENDING', 'SCHEDULED', 'ASSIGNED', 'COLLECTED'])
             ).first()
 
+            is_new = False
             if not existing_request:
                 # Create a new automated collection request
-                req_code = f"CR-{bin_obj.id[-2:]}-{datetime.now().strftime('%H%M%S')}"
+                req_code = f"CR-{bin_obj.id[-2:]}-{datetime.now().strftime('%H%M%S')}-{random.randint(100, 999)}"
                 col_req = CollectionRequest(
                     request_code=req_code,
                     bin_id=bin_obj.id,
@@ -109,15 +110,23 @@ class IoTSimulator:
                     created_at=datetime.now(timezone.utc)
                 )
                 db.session.add(col_req)
+                is_new = True
             elif is_overflow and existing_request.priority != 'URGENT':
                 existing_request.priority = 'URGENT'
                 existing_request.fill_level = bin_obj.fill_percentage
+                is_new = True
 
             alert_info = {
                 'triggered': True,
+                'is_new': is_new,
                 'alert_type': alert_type,
                 'message': alert_msg,
-                'priority': priority
+                'priority': priority,
+                'bin_id': bin_obj.id,
+                'location': bin_obj.location,
+                'waste_type': bin_obj.waste_type,
+                'fill_level': bin_obj.fill_percentage,
+                'status': 'FULL' if is_overflow else bin_obj.status
             }
 
         return alert_info
@@ -143,7 +152,7 @@ class IoTSimulator:
 
     @classmethod
     def empty_bin(cls, bin_id):
-        """Empties the bin (fill = 0%), marks pending collection requests completed."""
+        """Empties the bin (fill = 0%), marks pending/scheduled collection requests completed."""
         bin_obj = db.session.get(Bin, bin_id)
         if not bin_obj:
             return None, None
@@ -151,7 +160,7 @@ class IoTSimulator:
         # Resolve open collection requests for this bin
         open_requests = CollectionRequest.query.filter(
             CollectionRequest.bin_id == bin_id,
-            CollectionRequest.status.in_(['PENDING', 'ASSIGNED'])
+            CollectionRequest.status.in_(['PENDING', 'SCHEDULED', 'ASSIGNED', 'COLLECTED'])
         ).all()
         for req in open_requests:
             req.status = 'COMPLETED'

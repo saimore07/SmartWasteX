@@ -21,7 +21,7 @@
             <div class="col-md-8">
                 <div class="d-flex align-items-center gap-3">
                     <div class="rounded-circle bg-white text-success d-flex align-items-center justify-content-center fw-bold fs-4 shadow" style="width: 58px; height: 58px;">
-                        #{{ current_rank }}
+                        {% if current_user.green_credits > 0 %}#{{ current_rank }}{% else %}—{% endif %}
                     </div>
                     <div>
                         <div class="d-flex align-items-center gap-2">
@@ -29,7 +29,11 @@
                             <span class="badge bg-success-subtle text-success">You</span>
                         </div>
                         <p class="text-light text-opacity-75 small mb-0">
-                            Current Standing • Keep segregating waste to climb into the top 3!
+                            {% if current_user.green_credits > 0 %}
+                                Current Standing • Keep segregating waste to climb the campus leaderboard!
+                            {% else %}
+                                Welcome! Scan and segregate waste to earn your first Green Credits and join the rankings.
+                            {% endif %}
                         </p>
                     </div>
                 </div>
@@ -107,6 +111,14 @@
                                     {% else %}
                                         <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle rounded-pill">Active Recycler</span>
                                     {% endif %}
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="6" class="text-center py-5 text-muted">
+                                    <i class="bi bi-trophy text-secondary fs-1 d-block mb-2"></i>
+                                    <h6 class="fw-bold text-dark mb-1">No leaderboard activity yet.</h6>
+                                    <p class="small text-muted mb-0">Be the first to segregate waste and earn Green Credits!</p>
                                 </td>
                             </tr>
                         {% endfor %}

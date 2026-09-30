@@ -81,7 +81,7 @@ def print_banner():
     print(f" Target API       : {API_BASE}")
     print(f" Update Interval  : {UPDATE_INTERVAL}s")
     print(f" Monitored Bins   : {len(SIMULATED_BINS)} nodes ({', '.join(b['id'] for b in SIMULATED_BINS)})")
-    print(f" Status Hierarchy : <70% NORMAL | 70-84% WARNING | 85-99% HIGH | 100% OVERFLOW")
+    print(f" Status Hierarchy : 0-59% NORMAL | 60-79% MODERATE | 80-89% HIGH | 90-99% CRITICAL | 100% FULL")
     print("=" * 70)
     print(" Connecting to SmartWasteX platform...")
 
@@ -135,37 +135,61 @@ def run_simulation_loop():
             cycle_count += 1
             now_str = datetime.now().strftime("%H:%M:%S")
 
+            # Query server state to detect admin actions (e.g. admin marked pickup COMPLETED and emptied bin)
+            server_bins_map = {}
+            try:
+                live_bins = send_request('/api/bins')
+                if isinstance(live_bins, list):
+                    server_bins_map = {item['id']: item for item in live_bins}
+            except Exception:
+                pass
+
             for b in SIMULATED_BINS:
                 bin_id = b['id']
-                bin_name = b['name']
+                server_bin = server_bins_map.get(bin_id)
 
-                # Check if this bin was at overflow and needs to simulate collection reset
+                # Check if this bin was at 100% (FULL)
                 if b['fill'] >= 100.0:
-                    try:
-                        resp = send_request('/api/iot/bin-update', {
-                            'bin_id': bin_id,
-                            'action': 'empty'
-                        })
-                        b['fill'] = 0.0
-                        print(f" [{now_str}] 🚛 {bin_id} ({bin_name})")
-                        print(f"          ↳ Simulated Facilities Collection Executed: Emptied to 0.0% [NORMAL]")
+                    server_fill = float(server_bin.get('fill_percentage', 100.0)) if server_bin else 100.0
+                    if server_fill < 100.0:
+                        # Application reports pickup has been completed and bin emptied!
+                        b['fill'] = server_fill
+                        print(f" [{now_str}] {bin_id} → PICKUP COMPLETED")
+                        print(f" [{now_str}] {bin_id} → RESET TO {server_fill:.0f}%")
                         time.sleep(0.4)
                         continue
-                    except Exception as err:
-                        print(f" [{now_str}] ⚠️ {bin_id} -> Collection reset failed: {err}")
+                    else:
+                        # Bin remains at 100% waiting for admin pickup
+                        print(f" [{now_str}] {bin_id} → 100% → FULL")
+                        print(f" [{now_str}] 🚨 PICKUP REQUIRED: {bin_id}")
+                        # Keep reporting 100% telemetry without resetting
+                        try:
+                            send_request('/api/iot/bin-update', {'bin_id': bin_id, 'fill_level': 100.0})
+                        except Exception:
+                            pass
+                        time.sleep(0.5)
+                        continue
 
-                # Calculate realistic randomized telemetry increment
+                # If server bin was emptied or reset below local fill, sync downward
+                if server_bin:
+                    server_fill = float(server_bin.get('fill_percentage', b['fill']))
+                    if server_fill < b['fill'] - 10.0:
+                        b['fill'] = server_fill
+
+                # Increment fill level toward 100%
                 increment = random.randint(b['rate_min'], b['rate_max'])
                 new_fill = min(100.0, round(b['fill'] + increment, 1))
                 b['fill'] = new_fill
 
-                # Determine expected visual status
+                # Determine conceptual status
                 if new_fill >= 100.0:
-                    status_label = "OVERFLOW 🚨"
-                elif new_fill >= 85.0:
-                    status_label = "HIGH ⚠️"
-                elif new_fill >= 70.0:
-                    status_label = "WARNING"
+                    status_label = "FULL"
+                elif new_fill >= 90.0:
+                    status_label = "CRITICAL"
+                elif new_fill >= 80.0:
+                    status_label = "HIGH"
+                elif new_fill >= 60.0:
+                    status_label = "MODERATE"
                 else:
                     status_label = "NORMAL"
 
@@ -178,19 +202,9 @@ def run_simulation_loop():
                     resp = send_request('/api/iot/bin-update', payload)
 
                     if resp.get('success'):
-                        wt = resp.get('weight_kg', 0.0)
-                        temp = resp.get('temperature_c', 0.0)
-                        batt = resp.get('battery_level', 100.0)
-                        server_status = resp.get('status', status_label)
-
-                        # Output formatted telemetry row
-                        alert_info = resp.get('alert')
-                        alert_tag = ""
-                        if alert_info and alert_info.get('triggered'):
-                            alert_tag = f" -> 🚨 TICKET CREATED: {alert_info.get('priority')}"
-
-                        print(f" [{now_str}] {bin_id} ({b['waste_type'][:12]}) -> {new_fill:5.1f}% [{server_status:<8}] "
-                              f"| {wt:4.1f}kg | {temp:4.1f}°C | Batt: {batt:4.1f}%{alert_tag}")
+                        print(f" [{now_str}] {bin_id} → {new_fill:.0f}% → {status_label}")
+                        if new_fill >= 100.0:
+                            print(f" [{now_str}] 🚨 PICKUP REQUIRED: {bin_id}")
                     else:
                         print(f" [{now_str}] {bin_id} -> Server error: {resp.get('error')}")
 

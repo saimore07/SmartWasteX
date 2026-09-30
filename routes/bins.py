@@ -185,6 +185,30 @@ def admin_collections():
         current_filter=status_filter
     )
 
+@bins_bp.route('/admin/collections/<int:req_id>/schedule', methods=['POST'])
+@login_required
+@role_required('admin')
+def schedule_collection(req_id):
+    req_obj = db.get_or_404(CollectionRequest, req_id)
+    pickup_date = request.form.get('pickup_date', '').strip()
+    pickup_time = request.form.get('pickup_time', '').strip()
+
+    if not pickup_date:
+        pickup_date = datetime.now().strftime('%Y-%m-%d')
+    if not pickup_time:
+        pickup_time = datetime.now().strftime('%H:%M')
+
+    req_obj.status = 'SCHEDULED'
+    req_obj.scheduled_date = pickup_date
+    req_obj.scheduled_time = pickup_time
+    db.session.commit()
+
+    flash(f"Waste pickup for {req_obj.bin_id} scheduled for {pickup_date} at {pickup_time}.", 'success')
+    next_url = request.form.get('next_url')
+    if next_url:
+        return redirect(next_url)
+    return redirect(url_for('admin.dashboard'))
+
 @bins_bp.route('/admin/collections/<int:req_id>/status', methods=['POST'])
 @login_required
 @role_required('admin')
@@ -192,7 +216,7 @@ def update_collection_status(req_id):
     req_obj = db.get_or_404(CollectionRequest, req_id)
     new_status = request.form.get('status')
     
-    if new_status in ['PENDING', 'ASSIGNED', 'COLLECTED', 'COMPLETED']:
+    if new_status in ['PENDING', 'SCHEDULED', 'ASSIGNED', 'COLLECTED', 'COMPLETED']:
         req_obj.status = new_status
         if new_status == 'COMPLETED':
             req_obj.resolved_at = datetime.now(timezone.utc)
@@ -205,4 +229,7 @@ def update_collection_status(req_id):
     else:
         flash("Invalid status transition.", 'danger')
 
+    next_url = request.form.get('next_url')
+    if next_url:
+        return redirect(next_url)
     return redirect(url_for('bins.admin_collections'))

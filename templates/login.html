@@ -15,6 +15,16 @@
                     <h2 class="h3 fw-bold mb-1 brand-font text-white">SmartWaste<span class="text-success">X</span></h2>
                     <p class="text-secondary small mb-0">Campus Waste Segregation & E-Waste Tracking</p>
                 </div>
+
+                <!-- Navigation Tabs: Login / Sign Up -->
+                <div class="d-flex border-bottom text-center bg-light">
+                    <a href="{{ url_for('auth.login') }}" class="py-2 text-decoration-none text-success fw-bold flex-grow-1 bg-white border-bottom border-2 border-success">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Log In
+                    </a>
+                    <a href="{{ url_for('auth.signup') }}" class="py-2 text-decoration-none text-muted fw-semibold flex-grow-1 border-start">
+                        <i class="bi bi-person-plus me-1"></i> Sign Up
+                    </a>
+                </div>
                 
                 <div class="card-body p-4 p-md-5">
                     <form method="POST" action="{{ url_for('auth.login', next=request.args.get('next')) }}">
@@ -34,9 +44,13 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="btn btn-emerald w-100 py-2 fs-6 mb-2">
+                        <button type="submit" class="btn btn-emerald w-100 py-2 fs-6 mb-3">
                             <i class="bi bi-box-arrow-in-right me-2"></i> Log In
                         </button>
+
+                        <div class="text-center small text-muted">
+                            Don't have an account? <a href="{{ url_for('auth.signup') }}" class="text-success fw-bold text-decoration-none">Sign Up / Create Account</a>
+                        </div>
                     </form>
                 </div>
 

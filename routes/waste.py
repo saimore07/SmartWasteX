@@ -97,6 +97,12 @@ def scan():
 @role_required('user', 'admin')
 def result(scan_id):
     scan_record = db.get_or_404(WasteScan, scan_id)
+
+    # Security check: User can only view their own scan records (unless admin)
+    if scan_record.user_id != session['user_id'] and session.get('role') != 'admin':
+        flash('Access denied: You can only view your own scan records.', 'danger')
+        return redirect(url_for('user.dashboard'))
+
     nearest_bin = db.session.get(Bin, scan_record.nearest_bin_id) if scan_record.nearest_bin_id else None
 
     return render_template(
@@ -110,6 +116,12 @@ def result(scan_id):
 @role_required('user', 'admin')
 def confirm_disposal(scan_id):
     scan_record = db.get_or_404(WasteScan, scan_id)
+
+    # Security check: User can only confirm their own scan disposals
+    if scan_record.user_id != session['user_id'] and session.get('role') != 'admin':
+        flash('Access denied: You cannot confirm another user\'s disposal.', 'danger')
+        return redirect(url_for('user.dashboard'))
+
     user = db.session.get(User, session['user_id'])
 
     if scan_record.status == 'DISPOSED':

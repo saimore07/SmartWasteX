@@ -91,3 +91,53 @@ def test_login_with_username_prefix(client):
     }, follow_redirects=True)
     assert response.status_code == 200
     assert b"Welcome back, Rahul" in response.data
+
+def test_signup_page_loads(client):
+    """Verify signup page renders correctly with registration form."""
+    response = client.get('/signup')
+    assert response.status_code == 200
+    assert b"Join SmartWaste" in response.data
+    assert b"Create Account" in response.data
+
+def test_signup_success_and_login(client):
+    """Verify a new user can sign up and then log in with their actual registered name."""
+    response = client.post('/signup', data={
+        'name': 'Sai More',
+        'email': 'saimore@university.edu',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"successfully created" in response.data
+
+    # Now log in with new user credentials
+    login_res = client.post('/login', data={
+        'email': 'saimore@university.edu',
+        'password': 'password123'
+    }, follow_redirects=True)
+    assert login_res.status_code == 200
+    # Must display actual registered user name dynamically
+    assert b"Sai More" in login_res.data
+
+def test_signup_validation_mismatched_password(client):
+    """Verify signup validates matching passwords."""
+    response = client.post('/signup', data={
+        'name': 'Sai More',
+        'email': 'saimore2@university.edu',
+        'password': 'password123',
+        'confirm_password': 'differentpassword'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"Passwords do not match" in response.data
+
+def test_signup_duplicate_email_prevention(client):
+    """Verify duplicate email registration is prevented."""
+    response = client.post('/signup', data={
+        'name': 'Duplicate User',
+        'email': 'user1@smartwastex.in',
+        'password': 'password123',
+        'confirm_password': 'password123'
+    }, follow_redirects=True)
+    assert response.status_code == 200
+    assert b"already exists" in response.data
+

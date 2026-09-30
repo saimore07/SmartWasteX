@@ -33,6 +33,9 @@
         <a href="{{ url_for('bins.admin_collections', status='PENDING') }}" class="btn btn-sm {% if current_filter == 'PENDING' %}btn-danger{% else %}btn-outline-danger{% endif %} rounded-pill px-3">
             Pending ({{ pending_count }})
         </a>
+        <a href="{{ url_for('bins.admin_collections', status='SCHEDULED') }}" class="btn btn-sm {% if current_filter == 'SCHEDULED' %}btn-info text-dark{% else %}btn-outline-info text-dark{% endif %} rounded-pill px-3">
+            Scheduled
+        </a>
         <a href="{{ url_for('bins.admin_collections', status='ASSIGNED') }}" class="btn btn-sm {% if current_filter == 'ASSIGNED' %}btn-warning{% else %}btn-outline-warning text-dark{% endif %} rounded-pill px-3">
             Assigned
         </a>
@@ -105,6 +108,9 @@
                                     <td>
                                         {% if r.status == 'PENDING' %}
                                             <span class="badge bg-danger-subtle text-danger border border-danger-subtle rounded-pill">PENDING</span>
+                                        {% elif r.status == 'SCHEDULED' %}
+                                            <span class="badge bg-info-subtle text-info-emphasis border border-info-subtle rounded-pill">SCHEDULED</span>
+                                            {% if r.scheduled_date %}<div class="small text-muted font-monospace mt-1">{{ r.scheduled_date }} {{ r.scheduled_time }}</div>{% endif %}
                                         {% elif r.status == 'ASSIGNED' %}
                                             <span class="badge bg-warning-subtle text-warning-emphasis border border-warning-subtle rounded-pill">ASSIGNED</span>
                                         {% elif r.status == 'COLLECTED' %}
@@ -122,6 +128,9 @@
                                             {% if r.status == 'PENDING' %}
                                                 <input type="hidden" name="status" value="ASSIGNED">
                                                 <button type="submit" class="btn btn-warning btn-sm py-1 px-2 text-dark">Assign Crew</button>
+                                            {% elif r.status == 'SCHEDULED' %}
+                                                <input type="hidden" name="status" value="COMPLETED">
+                                                <button type="submit" class="btn btn-success btn-sm py-1 px-2">Complete & Empty</button>
                                             {% elif r.status == 'ASSIGNED' %}
                                                 <input type="hidden" name="status" value="COLLECTED">
                                                 <button type="submit" class="btn btn-primary btn-sm py-1 px-2">Mark Collected</button>

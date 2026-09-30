@@ -44,27 +44,38 @@ class ImpactService:
 
     @staticmethod
     def get_admin_dashboard_metrics():
-        """Aggregates high-level metrics for the Admin Dashboard."""
+        """Aggregates high-level metrics for the Admin Dashboard directly from database."""
         # Total waste diverted
         diverted_from_scans = db.session.query(
             func.coalesce(func.sum(WasteScan.diverted_weight_kg), 0.0)
-        ).filter(WasteScan.status == 'DISPOSED').scalar()
+        ).filter(WasteScan.status == 'DISPOSED').scalar() or 0.0
 
         # Diverted e-waste
         diverted_from_ewaste = db.session.query(
             func.coalesce(func.sum(EWasteAsset.weight_kg), 0.0)
-        ).scalar()
+        ).scalar() or 0.0
 
-        total_waste_diverted_kg = round(diverted_from_scans + diverted_from_ewaste + 1200.0, 1)  # Includes baseline campus history
-        total_ewaste_kg = round(diverted_from_ewaste + 180.0, 1)
-        active_participants = User.query.filter(User.role == 'user').count() + 425  # Includes campus cohort
-        total_verified_actions = WasteScan.query.count() + 2800
+        total_waste_diverted_kg = round(diverted_from_scans + diverted_from_ewaste, 1)
+        total_ewaste_kg = round(diverted_from_ewaste, 1)
+        active_participants = User.query.filter(User.role == 'user').count()
+        total_verified_actions = WasteScan.query.count()
         total_green_credits = db.session.query(
             func.coalesce(func.sum(User.green_credits), 0)
-        ).scalar() + 5400
+        ).scalar() or 0
 
         bins_requiring_collection = Bin.query.filter(Bin.fill_percentage >= 85).count()
         sustainability_score = ImpactService.get_campus_sustainability_score()
+
+        # Dynamic accuracy and circularity rates
+        total_scans_count = WasteScan.query.count()
+        disposed_scans_count = WasteScan.query.filter_by(status='DISPOSED').count()
+        segregation_accuracy = round((disposed_scans_count / total_scans_count * 100.0), 1) if total_scans_count > 0 else 100.0
+
+        total_ewaste_count = EWasteAsset.query.count()
+        recycled_ewaste_count = EWasteAsset.query.filter(
+            EWasteAsset.current_status.in_(['COLLECTED', 'SENT_TO_RECYCLER', 'RECYCLED'])
+        ).count()
+        circularity_index = round((recycled_ewaste_count / total_ewaste_count * 100.0), 1) if total_ewaste_count > 0 else 100.0
 
         return {
             'total_waste_diverted_kg': total_waste_diverted_kg,
@@ -73,16 +84,18 @@ class ImpactService:
             'total_verified_actions': total_verified_actions,
             'total_green_credits': total_green_credits,
             'bins_requiring_collection': bins_requiring_collection,
-            'sustainability_score': sustainability_score
+            'sustainability_score': sustainability_score,
+            'segregation_accuracy': segregation_accuracy,
+            'circularity_index': circularity_index
         }
 
     @staticmethod
     def get_chart_data():
-        """Returns structured JSON-serializable chart data for Chart.js."""
+        """Returns structured JSON-serializable chart data for Chart.js based on actual database records."""
         # 1. Waste Category Distribution
-        bio_count = WasteScan.query.filter_by(category='Biodegradable').count() + 45
-        dry_count = WasteScan.query.filter_by(category='Dry Recyclable').count() + 70
-        ewaste_count = WasteScan.query.filter_by(category='Hazardous / E-Waste').count() + EWasteAsset.query.count() + 25
+        bio_count = WasteScan.query.filter_by(category='Biodegradable').count()
+        dry_count = WasteScan.query.filter_by(category='Dry Recyclable').count()
+        ewaste_count = WasteScan.query.filter_by(category='Hazardous / E-Waste').count() + EWasteAsset.query.count()
 
         category_distribution = {
             'labels': ['Dry Recyclable', 'Biodegradable', 'Hazardous / E-Waste'],
@@ -99,18 +112,58 @@ class ImpactService:
         }
 
         # 3. Waste Processed over time (Last 6 days + Today)
-        days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Today']
+        labels = []
+        dry_trend = []
+        bio_trend = []
+        ewaste_trend = []
+        credits_trend = []
+
+        now = datetime.now(timezone.utc)
+        for i in range(6, -1, -1):
+            day_dt = now - timedelta(days=i)
+            day_label = 'Today' if i == 0 else day_dt.strftime('%a')
+            labels.append(day_label)
+
+            start = day_dt.replace(hour=0, minute=0, second=0, microsecond=0)
+            end = start + timedelta(days=1)
+
+            dry_val = db.session.query(func.coalesce(func.sum(WasteScan.diverted_weight_kg), 0.0)).filter(
+                WasteScan.category == 'Dry Recyclable',
+                WasteScan.created_at >= start,
+                WasteScan.created_at < end
+            ).scalar() or 0.0
+
+            bio_val = db.session.query(func.coalesce(func.sum(WasteScan.diverted_weight_kg), 0.0)).filter(
+                WasteScan.category == 'Biodegradable',
+                WasteScan.created_at >= start,
+                WasteScan.created_at < end
+            ).scalar() or 0.0
+
+            ewaste_val = db.session.query(func.coalesce(func.sum(EWasteAsset.weight_kg), 0.0)).filter(
+                EWasteAsset.created_at >= start,
+                EWasteAsset.created_at < end
+            ).scalar() or 0.0
+
+            cred_val = db.session.query(func.coalesce(func.sum(GreenCreditTransaction.amount), 0)).filter(
+                GreenCreditTransaction.created_at >= start,
+                GreenCreditTransaction.created_at < end
+            ).scalar() or 0
+
+            dry_trend.append(round(dry_val, 1))
+            bio_trend.append(round(bio_val, 1))
+            ewaste_trend.append(round(ewaste_val, 1))
+            credits_trend.append(int(cred_val))
+
         waste_trend = {
-            'labels': days,
-            'dry': [45, 52, 58, 64, 70, 68, 75],
-            'bio': [30, 35, 42, 38, 48, 45, 50],
-            'ewaste': [12, 18, 14, 22, 19, 25, 28]
+            'labels': labels,
+            'dry': dry_trend,
+            'bio': bio_trend,
+            'ewaste': ewaste_trend
         }
 
-        # 4. Green Credits Activity
         credits_activity = {
-            'labels': days,
-            'credits': [320, 450, 410, 560, 620, 580, 710]
+            'labels': labels,
+            'credits': credits_trend
         }
 
         return {

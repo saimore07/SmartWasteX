@@ -72,4 +72,4 @@ def test_leaderboard_page(client):
     assert response.status_code == 200
     assert b"Campus Green Champions" in response.data
     assert b"Rahul Sharma" in response.data
-    assert b"Sai K." in response.data
+    assert b"Real-Time Campus Standings" in response.data

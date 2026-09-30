@@ -67,6 +67,22 @@ def create_app(config_class=Config):
 def init_and_seed_db(app):
     db.create_all()
 
+    # Ensure scheduled_date and scheduled_time columns exist on existing databases
+    try:
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE collection_requests ADD COLUMN scheduled_date VARCHAR(50)"))
+            conn.commit()
+    except Exception:
+        pass
+    try:
+        from sqlalchemy import text
+        with db.engine.connect() as conn:
+            conn.execute(text("ALTER TABLE collection_requests ADD COLUMN scheduled_time VARCHAR(50)"))
+            conn.commit()
+    except Exception:
+        pass
+
     demo_user_email = os.environ.get('DEMO_USER_EMAIL', 'user1@smartwastex.in')
     demo_user_password = os.environ.get('DEMO_USER_PASSWORD', 'user1@123')
     demo_admin_email = os.environ.get('DEMO_ADMIN_EMAIL', 'admin@smartwastex.in')
@@ -102,27 +118,13 @@ def init_and_seed_db(app):
         admin_user.set_password(demo_admin_password)
         db.session.add(admin_user)
 
-    # 3. Seed Campus Champions for realistic Leaderboard
-    extra_users = [
-        ('sai@smartwastex.in', 'Sai K.', 420, 28, 22.5),
-        ('priya@smartwastex.in', 'Priya M.', 340, 21, 15.8),
-        ('aditya@smartwastex.in', 'Aditya V.', 290, 18, 12.3),
-        ('sneha@smartwastex.in', 'Sneha Patel', 245, 16, 11.0),
-        ('karan@smartwastex.in', 'Karan Mehta', 190, 12, 8.4)
-    ]
-    for email, name, credits, items, diverted in extra_users:
-        if not User.query.filter_by(email=email).first():
-            u = User(
-                email=email,
-                name=name,
-                role='user',
-                green_credits=credits,
-                items_recycled=items,
-                waste_diverted_kg=diverted,
-                created_at=datetime.now(timezone.utc) - timedelta(days=20)
-            )
-            u.set_password('demo@123')
-            db.session.add(u)
+    # Clean up legacy placeholder accounts so leaderboard and user stats reflect only genuine users
+    dummy_emails = ['sai@smartwastex.in', 'priya@smartwastex.in', 'aditya@smartwastex.in', 'sneha@smartwastex.in', 'karan@smartwastex.in']
+    for d_email in dummy_emails:
+        dummy_u = User.query.filter_by(email=d_email).first()
+        if dummy_u:
+            db.session.delete(dummy_u)
+    db.session.commit()
 
     # 4. Seed Smart Bins
     bins_data = [

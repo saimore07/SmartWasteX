@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up / Create Account — SmartWasteX{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center align-items-center min-vh-75">
+        <div class="col-12 col-md-8 col-lg-5">
+            <!-- Brand Card -->
+            <div class="card eco-card shadow-lg border-0 overflow-hidden">
+                <div class="card-header bg-dark text-white text-center py-4 border-0 position-relative" style="background: var(--dark-gradient) !important;">
+                    <div class="brand-icon-box mx-auto mb-3" style="width: 54px; height: 54px; font-size: 1.75rem;">
+                        <i class="bi bi-person-plus-fill"></i>
+                    </div>
+                    <h2 class="h3 fw-bold mb-1 brand-font text-white">Join SmartWaste<span class="text-success">X</span></h2>
+                    <p class="text-secondary small mb-0">Create your campus waste segregation account</p>
+                </div>
+
+                <!-- Navigation Tabs: Login / Sign Up -->
+                <div class="d-flex border-bottom text-center bg-light">
+                    <a href="{{ url_for('auth.login') }}" class="py-2 text-decoration-none text-muted fw-semibold flex-grow-1 border-end">
+                        <i class="bi bi-box-arrow-in-right me-1"></i> Log In
+                    </a>
+                    <a href="{{ url_for('auth.signup') }}" class="py-2 text-decoration-none text-success fw-bold flex-grow-1 bg-white border-bottom border-2 border-success">
+                        <i class="bi bi-person-plus me-1"></i> Sign Up
+                    </a>
+                </div>
+                
+                <div class="card-body p-4 p-md-5">
+                    <form method="POST" action="{{ url_for('auth.signup') }}">
+                        <!-- Full Name -->
+                        <div class="mb-3">
+                            <label for="name" class="form-label fw-semibold small text-muted text-uppercase">Full Name</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-person"></i></span>
+                                <input type="text" class="form-control border-start-0" id="name" name="name" value="{{ name or '' }}" placeholder="e.g. Sai More" required autofocus>
+                            </div>
+                        </div>
+
+                        <!-- Username / Email -->
+                        <div class="mb-3">
+                            <label for="email" class="form-label fw-semibold small text-muted text-uppercase">Username or Email</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-envelope"></i></span>
+                                <input type="text" class="form-control border-start-0" id="email" name="email" value="{{ email or '' }}" placeholder="e.g. saimore or sai@campus.edu" required>
+                            </div>
+                            <small class="text-muted" style="font-size: 0.75rem;">You can use this username or email to log in.</small>
+                        </div>
+
+                        <!-- Password -->
+                        <div class="mb-3">
+                            <label for="password" class="form-label fw-semibold small text-muted text-uppercase mb-0">Password</label>
+                            <div class="input-group mt-1">
+                                <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-lock"></i></span>
+                                <input type="password" class="form-control border-start-0" id="password" name="password" placeholder="At least 6 characters" minlength="6" required>
+                            </div>
+                        </div>
+
+                        <!-- Confirm Password -->
+                        <div class="mb-4">
+                            <label for="confirm_password" class="form-label fw-semibold small text-muted text-uppercase mb-0">Confirm Password</label>
+                            <div class="input-group mt-1">
+                                <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-shield-check"></i></span>
+                                <input type="password" class="form-control border-start-0" id="confirm_password" name="confirm_password" placeholder="Re-enter password" minlength="6" required>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="btn btn-emerald w-100 py-2 fs-6 mb-3">
+                            <i class="bi bi-person-check me-2"></i> Create Account
+                        </button>
+
+                        <div class="text-center small text-muted">
+                            Already have an account? <a href="{{ url_for('auth.login') }}" class="text-success fw-bold text-decoration-none">Log In</a>
+                        </div>
+                    </form>
+                </div>
+
+                <div class="card-footer bg-light text-center py-3 border-top text-muted small">
+                    Smart Campus • Smart Waste • Smart Future
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

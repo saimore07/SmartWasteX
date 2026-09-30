@@ -13,8 +13,10 @@
                 </span>
                 <span class="badge bg-light text-muted border">Real-Time Sync</span>
             </div>
-            <h1 class="display-6 fw-bold mb-0 brand-font">Campus Sustainability Command Center</h1>
-            <p class="text-muted small mb-0">Live monitoring of waste segregation telemetry, smart receptacles, and circular e-waste lifecycles.</p>
+            <h1 class="display-6 fw-bold mb-1 brand-font">Campus Sustainability Command Center</h1>
+            <p class="text-muted small mb-0">
+                Welcome, <strong class="text-dark">{{ session.get('name', 'Administrator') }}</strong> • Live monitoring of waste segregation telemetry, smart receptacles, and circular e-waste lifecycles.
+            </p>
         </div>
         <div class="d-flex gap-2">
             <a href="{{ url_for('bins.admin_bins') }}" class="btn btn-outline-secondary btn-sm">
@@ -47,6 +49,124 @@
             </div>
         </div>
     {% endif %}
+
+    <!-- 🚨 Pickup Alerts (Visible Action Cards for Full Bins) -->
+    {% if pickup_alerts %}
+    <div class="card eco-card border-danger shadow-sm mb-4">
+        <div class="card-header bg-danger text-white py-3 px-4 d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                <h5 class="mb-0 fw-bold">🚨 Pickup Alerts</h5>
+                <span class="badge bg-white text-danger fw-bold rounded-pill ms-2">{{ pickup_alerts|length }} Active</span>
+            </div>
+            <a href="{{ url_for('bins.admin_collections') }}" class="btn btn-sm btn-outline-light">
+                <i class="bi bi-list-task me-1"></i> Full Dispatch Queue
+            </a>
+        </div>
+        <div class="card-body p-4 bg-light-subtle">
+            <div class="row g-3">
+                {% for alert in pickup_alerts %}
+                <div class="col-md-6 col-lg-4">
+                    <div class="card h-100 border-2 {% if alert.status == 'PENDING' %}border-danger{% elif alert.status == 'SCHEDULED' %}border-info{% else %}border-warning{% endif %} shadow-sm bg-white">
+                        <div class="card-header d-flex justify-content-between align-items-center bg-transparent pt-3 pb-2 border-0">
+                            <span class="badge {% if alert.status == 'PENDING' %}bg-danger{% elif alert.status == 'SCHEDULED' %}bg-info text-dark{% else %}bg-warning text-dark{% endif %} px-2 py-1 fw-bold">
+                                🚨 PICKUP REQUIRED
+                            </span>
+                            <span class="badge {% if alert.status == 'PENDING' %}bg-danger-subtle text-danger border border-danger-subtle{% elif alert.status == 'SCHEDULED' %}bg-info-subtle text-info-emphasis border border-info-subtle{% else %}bg-warning-subtle text-warning-emphasis border border-warning-subtle{% endif %} small">
+                                {{ alert.status }}
+                            </span>
+                        </div>
+                        <div class="card-body pt-1 pb-3">
+                            <h4 class="fw-bold mb-1 text-dark">{{ alert.bin_id }}</h4>
+                            <div class="text-muted small mb-2"><i class="bi bi-geo-alt-fill text-danger me-1"></i> {{ alert.location }}</div>
+                            <div class="d-flex justify-content-between small text-muted mb-2">
+                                <span>Waste Type:</span>
+                                <span class="fw-semibold text-dark">{{ alert.waste_type }}</span>
+                            </div>
+                            <div class="d-flex justify-content-between small text-muted mb-2">
+                                <span>Fill Level:</span>
+                                <span class="fw-bold text-danger">{{ alert.fill_level }}% FULL</span>
+                            </div>
+                            <div class="d-flex justify-content-between small text-muted mb-3">
+                                <span>Alert Time:</span>
+                                <span class="text-dark">{{ alert.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                            </div>
+
+                            {% if alert.status == 'SCHEDULED' and alert.scheduled_date %}
+                            <div class="alert alert-info py-2 px-3 small mb-3">
+                                <i class="bi bi-calendar-check me-1"></i> Scheduled: <strong>{{ alert.scheduled_date }} at {{ alert.scheduled_time }}</strong>
+                            </div>
+                            {% endif %}
+
+                            <div class="d-flex gap-2">
+                                {% if alert.status == 'PENDING' %}
+                                <button type="button" class="btn btn-outline-danger btn-sm w-100 fw-bold" data-bs-toggle="modal" data-bs-target="#scheduleModal{{ alert.id }}">
+                                    <i class="bi bi-calendar-plus me-1"></i> Schedule Pickup
+                                </button>
+                                {% else %}
+                                <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal{{ alert.id }}" title="Reschedule Pickup">
+                                    <i class="bi bi-calendar-event me-1"></i> Reschedule
+                                </button>
+                                {% endif %}
+
+                                <form method="POST" action="{{ url_for('bins.update_collection_status', req_id=alert.id) }}" class="flex-grow-1">
+                                    <input type="hidden" name="status" value="COMPLETED">
+                                    <input type="hidden" name="next_url" value="{{ url_for('admin.dashboard') }}">
+                                    <button type="submit" class="btn btn-success btn-sm w-100 fw-bold">
+                                        <i class="bi bi-check2-circle me-1"></i> Complete Pickup
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Schedule Pickup Modal -->
+                <div class="modal fade" id="scheduleModal{{ alert.id }}" tabindex="-1" aria-labelledby="scheduleModalLabel{{ alert.id }}" aria-hidden="true">
+                    <div class="modal-dialog modal-dialog-centered">
+                        <div class="modal-content">
+                            <form method="POST" action="{{ url_for('bins.schedule_collection', req_id=alert.id) }}">
+                                <input type="hidden" name="next_url" value="{{ url_for('admin.dashboard') }}">
+                                <div class="modal-header bg-danger text-white">
+                                    <h5 class="modal-title fw-bold" id="scheduleModalLabel{{ alert.id }}">
+                                        <i class="bi bi-calendar-check me-2"></i> Schedule Waste Pickup: {{ alert.bin_id }}
+                                    </h5>
+                                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    <div class="mb-3">
+                                        <label class="form-label text-muted small fw-bold">Bin Details</label>
+                                        <input type="text" class="form-control bg-light" value="{{ alert.bin_id }} — {{ alert.location }} ({{ alert.waste_type }})" readonly>
+                                    </div>
+                                    <div class="row g-2 mb-3">
+                                        <div class="col-6">
+                                            <label for="pickup_date_{{ alert.id }}" class="form-label small fw-bold">Pickup Date</label>
+                                            <input type="date" class="form-control" id="pickup_date_{{ alert.id }}" name="pickup_date" value="{{ alert.scheduled_date or '' }}" required>
+                                        </div>
+                                        <div class="col-6">
+                                            <label for="pickup_time_{{ alert.id }}" class="form-label small fw-bold">Pickup Time</label>
+                                            <input type="time" class="form-control" id="pickup_time_{{ alert.id }}" name="pickup_time" value="{{ alert.scheduled_time or '' }}" required>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 bg-light rounded border small text-muted">
+                                        <i class="bi bi-info-circle text-primary me-1"></i>
+                                        Scheduling transitions this ticket to <strong>SCHEDULED</strong>. Once waste is physically retrieved, click <strong>Complete Pickup</strong> to empty the bin and reset telemetry to 0%.
+                                    </div>
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+                                    <button type="submit" class="btn btn-danger btn-sm px-3 fw-bold">Confirm Schedule</button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
 
     <!-- 6 Primary Stat Metric Cards -->
     <div class="row g-3 mb-4">
@@ -217,7 +337,7 @@
                                         </td>
                                         <td>
                                             <span id="dash-status-badge-{{ b.id }}" class="badge {% if b.status == 'OVERFLOW' %}badge-eco-overflow{% elif b.status == 'HIGH' %}badge-eco-high{% elif b.status == 'WARNING' %}badge-eco-warning{% else %}badge-eco-normal{% endif %}">
-                                                {{ b.status }}
+                                                {% if b.status == 'OVERFLOW' %}FULL / PICKUP REQUIRED{% else %}{{ b.status }}{% endif %}
                                             </span>
                                         </td>
                                         <td class="pe-4 text-end">

@@ -14,9 +14,18 @@ def dashboard():
     metrics = ImpactService.get_admin_dashboard_metrics()
     chart_data = ImpactService.get_chart_data()
 
+    # Active pickup alerts for full bins (100% capacity) and urgent collection requests
+    pickup_alerts = CollectionRequest.query.filter(
+        CollectionRequest.status.in_(['PENDING', 'SCHEDULED', 'ASSIGNED']),
+        (CollectionRequest.fill_level >= 100) | (CollectionRequest.priority == 'URGENT')
+    ).order_by(
+        db.case((CollectionRequest.status == 'PENDING', 1), (CollectionRequest.status == 'SCHEDULED', 2), else_=3),
+        CollectionRequest.created_at.desc()
+    ).all()
+
     # Query recent alerts / urgent collection requests
     urgent_requests = CollectionRequest.query.filter(
-        CollectionRequest.status.in_(['PENDING', 'ASSIGNED'])
+        CollectionRequest.status.in_(['PENDING', 'SCHEDULED', 'ASSIGNED'])
     ).order_by(
         db.case((CollectionRequest.priority == 'URGENT', 1), else_=2),
         CollectionRequest.created_at.desc()
@@ -31,9 +40,11 @@ def dashboard():
         chart_data=chart_data,
         chart_data_json=json.dumps(chart_data),
         urgent_requests=urgent_requests,
+        pickup_alerts=pickup_alerts,
         bins=bins_list,
         recent_scans=recent_scans
     )
+
 
 @admin_bp.route('/admin/analytics')
 @login_required
@@ -44,7 +55,7 @@ def analytics():
     bins_list = Bin.query.order_by(Bin.id.asc()).all()
     bins_json = json.dumps([b.to_dict() for b in bins_list])
 
-    total_scans = WasteScan.query.count() + 140
+    total_scans = WasteScan.query.count()
     total_ewaste = EWasteAsset.query.count()
 
     return render_template(
