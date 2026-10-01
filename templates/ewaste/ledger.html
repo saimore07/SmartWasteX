@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% block title %}Public E-Waste Ledger — Circularity Records | SmartWasteX{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ewaste.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4">
+        <div>
+            <h2 class="fw-bold mb-1">
+                <i class="bi bi-journal-text text-success me-2"></i> Public E-Waste Ledger
+            </h2>
+            <p class="text-secondary mb-0">Transparent, immutable record of every registered asset &middot; UN SDG 11 Circular Campus</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{{ url_for('ewaste.dropoff') }}" class="btn btn-outline-success">
+                <i class="bi bi-box-arrow-in-down me-1"></i> Drop-off E-Waste
+            </a>
+            {% if session.get('role') == 'admin' %}
+            <a href="{{ url_for('ewaste.register_asset') }}" class="btn btn-emerald">
+                <i class="bi bi-plus-circle me-1"></i> Register Asset
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Search & Filter Card -->
+    <div class="eco-card p-3 mb-4 shadow-sm bg-white">
+        <form method="GET" action="{{ url_for('ewaste.public_ledger') }}" class="row g-2 align-items-center">
+            <div class="col-md-6 col-lg-7">
+                <div class="input-group">
+                    <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" value="{{ search_query or '' }}" class="form-control border-start-0" placeholder="Search by Asset ID, Device Name, Serial Number, or Location...">
+                </div>
+            </div>
+            <div class="col-md-4 col-lg-3">
+                <select name="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="REGISTERED" {% if status_filter == 'REGISTERED' %}selected{% endif %}>Registered / In Use</option>
+                    <option value="PENDING_DROPOFF" {% if status_filter == 'PENDING_DROPOFF' %}selected{% endif %}>Pending Drop-off</option>
+                    <option value="DECOMMISSIONED" {% if status_filter == 'DECOMMISSIONED' %}selected{% endif %}>Decommissioned</option>
+                    <option value="COLLECTION_REQUESTED" {% if status_filter == 'COLLECTION_REQUESTED' %}selected{% endif %}>Storage / Collection Requested</option>
+                    <option value="COLLECTED" {% if status_filter == 'COLLECTED' %}selected{% endif %}>Collected</option>
+                    <option value="SENT_TO_RECYCLER" {% if status_filter == 'SENT_TO_RECYCLER' %}selected{% endif %}>Sent to Recycler</option>
+                    <option value="RECYCLED" {% if status_filter == 'RECYCLED' %}selected{% endif %}>Recycled (Terminal)</option>
+                </select>
+            </div>
+            <div class="col-md-2 col-lg-2 d-flex gap-2">
+                <button type="submit" class="btn btn-emerald w-100">Filter</button>
+                {% if search_query or status_filter %}
+                <a href="{{ url_for('ewaste.public_ledger') }}" class="btn btn-outline-secondary" title="Clear Filters"><i class="bi bi-x-lg"></i></a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
+    <!-- Assets Table -->
+    {% if assets %}
+    <div class="eco-card p-0 shadow-sm overflow-hidden mb-4 bg-white">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0" style="font-size:0.9rem;">
+                <thead class="table-light border-bottom">
+                    <tr>
+                        <th class="ps-4">Asset ID</th>
+                        <th>Device Name</th>
+                        <th>Category</th>
+                        <th>Department</th>
+                        <th>Current Location</th>
+                        <th>Status</th>
+                        <th>Registered Date</th>
+                        <th class="text-center pe-4">Passport &amp; QR</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for a in assets %}
+                    <tr>
+                        <td class="ps-4">
+                            <a href="{{ url_for('ewaste.asset_detail', asset_id=a.asset_id) }}" class="fw-bold text-decoration-none text-success">
+                                {{ a.asset_id }}
+                            </a>
+                        </td>
+                        <td>
+                            <div class="fw-semibold text-dark">{{ a.device_name }}</div>
+                            <small class="text-muted">SN: {{ a.serial_number or 'N/A' }}</small>
+                        </td>
+                        <td><span class="badge bg-light text-dark border">{{ a.category }}</span></td>
+                        <td class="text-muted">{{ a.department or 'Campus General' }}</td>
+                        <td><span class="text-muted"><i class="bi bi-geo-alt me-1 text-danger"></i>{{ a.location }}</span></td>
+                        <td>
+                            <span class="badge-status {{ a.current_status }}">
+                                {{ a.current_status.replace('_', ' ') }}
+                            </span>
+                        </td>
+                        <td class="text-muted">{{ a.created_at.strftime('%d %b %Y') if a.created_at else 'N/A' }}</td>
+                        <td class="text-center pe-4">
+                            <div class="d-inline-flex gap-1">
+                                <a href="{{ url_for('ewaste.asset_detail', asset_id=a.asset_id) }}" class="btn btn-sm btn-outline-success" title="View Asset Details">
+                                    <i class="bi bi-qr-code"></i>
+                                </a>
+                                <a href="{{ url_for('ewaste.public_ewaste_passport', asset_id=a.asset_id) }}" class="btn btn-sm btn-outline-secondary" title="Public Digital Passport" target="_blank">
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </a>
+                            </div>
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="eco-card p-5 text-center bg-white">
+        <i class="bi bi-journal-x display-4 text-muted mb-3 d-block"></i>
+        <h5 class="fw-bold text-dark mb-1">No Matching Assets Found</h5>
+        <p class="text-secondary mb-3">No e-waste items match your current filter criteria.</p>
+        <a href="{{ url_for('ewaste.public_ledger') }}" class="btn btn-outline-secondary btn-sm">Clear Search Filter</a>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

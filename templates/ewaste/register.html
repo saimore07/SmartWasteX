@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Register E-Waste Asset — Institutional Onboarding | SmartWasteX{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ewaste.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-9 col-lg-7">
+
+            <div class="eco-card p-4 shadow-sm bg-white">
+                <div class="text-center mb-4">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-primary bg-opacity-10 text-primary rounded-circle mb-3" style="width: 58px; height: 58px;">
+                        <i class="bi bi-cpu fs-2"></i>
+                    </div>
+                    <h3 class="fw-bold mb-1">Register New E-Waste Asset</h3>
+                    <p class="text-secondary small mb-0">Enroll hardware into the institutional custody-chain &amp; circularity ledger</p>
+                </div>
+
+                <form action="{{ url_for('ewaste.register_asset') }}" method="POST">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label for="device_name" class="form-label fw-semibold small">Device / Equipment Name <span class="text-danger">*</span></label>
+                            <input type="text" name="device_name" id="device_name" class="form-control" placeholder="e.g. Dell Latitude 5420 Laptop, Cisco Catalyst Switch" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="department" class="form-label fw-semibold small">Department <span class="text-danger">*</span></label>
+                            <select name="department" id="department" class="form-select" required>
+                                <option value="Computer Science">Computer Science &amp; Engineering</option>
+                                <option value="Electrical Engineering">Electrical Engineering</option>
+                                <option value="IT Infrastructure">IT Infrastructure / NOC</option>
+                                <option value="Administration">Campus Administration</option>
+                                <option value="Research Lab">Robotics &amp; AI Research Lab</option>
+                                <option value="Library">Central Library</option>
+                                <option value="General Campus">General Campus / Other</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="category" class="form-label fw-semibold small">Category <span class="text-danger">*</span></label>
+                            <select name="category" id="category" class="form-select" required>
+                                <option value="Computing">Computing (Laptops / Desktops / Servers)</option>
+                                <option value="Mobile">Mobile (Smartphones / Tablets)</option>
+                                <option value="Component">Component / PCB / Circuit Board</option>
+                                <option value="Networking">Networking / Telecom Gear</option>
+                                <option value="Peripherals">Peripherals (Keyboards / Mice / Monitors)</option>
+                                <option value="Batteries">Batteries &amp; Power Packs</option>
+                                <option value="Appliances">Lab Appliances</option>
+                            </select>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="serial_number" class="form-label fw-semibold small">Serial Number / Hardware Tag</label>
+                            <input type="text" name="serial_number" id="serial_number" class="form-control" placeholder="e.g. SN-DELL-94820">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="location" class="form-label fw-semibold small">Current Location <span class="text-danger">*</span></label>
+                            <input type="text" name="location" id="location" class="form-control" placeholder="e.g. CS Lab 2, Building B, Room 304" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="weight_kg" class="form-label fw-semibold small">Estimated Weight (kg)</label>
+                            <input type="number" step="0.01" name="weight_kg" id="weight_kg" class="form-control" value="1.5">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="recycler" class="form-label fw-semibold small">Designated Circular Recycler</label>
+                            <input type="text" name="recycler" id="recycler" class="form-control" value="EcoRecycle Solutions Hub">
+                        </div>
+
+                        <div class="col-12">
+                            <label for="notes" class="form-label fw-semibold small">Audit Notes / Condition</label>
+                            <textarea name="notes" id="notes" class="form-control" rows="2" placeholder="e.g. Asset retired after 5-year lifecycle. RAM sanitized, NIST 800-88 compliant data destruction scheduled."></textarea>
+                        </div>
+
+                        <div class="col-12 mt-4">
+                            <button type="submit" class="btn btn-emerald w-100 py-2 fw-semibold">
+                                <i class="bi bi-qr-code me-1"></i> Register Asset &amp; Generate Digital Passport QR
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

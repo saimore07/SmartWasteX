@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}Drop-off E-Waste — Circular Intake | SmartWasteX{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ewaste.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+
+            <div class="eco-card p-4 shadow-sm bg-white">
+                <div class="text-center mb-4">
+                    <div class="d-inline-flex align-items-center justify-content-center bg-success bg-opacity-10 text-success rounded-circle mb-3" style="width: 58px; height: 58px;">
+                        <i class="bi bi-box-arrow-in-down fs-2"></i>
+                    </div>
+                    <h3 class="fw-bold mb-1">Campus E-Waste Drop-off</h3>
+                    <p class="text-secondary small mb-0">Generate a digital intake QR ticket before surrendering institutional hardware</p>
+                </div>
+
+                <div class="alert alert-success border-0 small mb-4">
+                    <i class="bi bi-stars text-warning me-1"></i>
+                    <strong>Earn +25 Green Credits!</strong> Enrolling discarded electronics diverts toxic heavy metals and earns credits toward the campus circularity leaderboard.
+                </div>
+
+                <form action="{{ url_for('ewaste.dropoff') }}" method="POST">
+                    <div class="mb-3">
+                        <label for="device_name" class="form-label fw-semibold small">Device / Equipment Name <span class="text-danger">*</span></label>
+                        <input type="text" name="device_name" id="device_name" class="form-control" placeholder="e.g. Dell Latitude Laptop, iPad Mini, Broken Charger" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="department" class="form-label fw-semibold small">Department / Affiliation</label>
+                        <select name="department" id="department" class="form-select">
+                            <option value="Computer Science &amp; Engineering">Computer Science &amp; Engineering</option>
+                            <option value="Electrical Engineering">Electrical Engineering</option>
+                            <option value="Information Technology">Information Technology</option>
+                            <option value="Mechanical / Robotics Lab">Mechanical / Robotics Lab</option>
+                            <option value="Campus Administration">Campus Administration</option>
+                            <option value="Library &amp; Media Services">Library &amp; Media Services</option>
+                            <option value="Student Housing / Hostel">Student Housing / Hostel</option>
+                            <option value="Other">Other / Individual</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="notes" class="form-label fw-semibold small">Condition / Audit Notes <span class="text-muted">(Optional)</span></label>
+                        <textarea name="notes" id="notes" class="form-control" rows="2" placeholder="e.g. Battery depleted, screen cracked, hard drive removed"></textarea>
+                    </div>
+
+                    <button type="submit" class="btn btn-emerald w-100 py-2 fw-semibold">
+                        <i class="bi bi-qr-code me-1"></i> Generate Drop-off QR &amp; Claim Credits
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

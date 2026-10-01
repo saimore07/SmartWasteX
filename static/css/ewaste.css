@@ -1,0 +1,205 @@
+/* ==========================================================================
+   SmartWasteX — E-Waste Circularity & Custody Chain Stylesheet
+   Theme: Eco-Modern Tech (SDG 11 Sustainable Cities)
+   ========================================================================== */
+
+/* FSM Pipeline Visual */
+.fsm-pipeline-container {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.fsm-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 72px;
+}
+
+.fsm-dot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  border: 2px solid var(--border-color, #e2e8f0);
+  background: #ffffff;
+  color: #94a3b8;
+  transition: all 0.25s ease;
+}
+
+.fsm-dot.active {
+  background: var(--primary, #059669);
+  color: #ffffff;
+  border-color: var(--primary-light, #10b981);
+  box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2);
+  transform: scale(1.08);
+}
+
+.fsm-dot.completed {
+  background: #d1fae5;
+  color: #047857;
+  border-color: #34d399;
+}
+
+.fsm-dot.pending {
+  background: #f8fafc;
+  color: #94a3b8;
+  border-color: #e2e8f0;
+}
+
+.fsm-connector {
+  height: 3px;
+  flex: 1;
+  min-width: 24px;
+  max-width: 50px;
+  border-radius: 2px;
+}
+
+.fsm-connector.completed {
+  background: #10b981;
+}
+
+.fsm-connector.pending {
+  background: #e2e8f0;
+}
+
+/* Status Badges */
+.badge-status {
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 0.35em 0.85em;
+  border-radius: 6px;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  text-transform: uppercase;
+}
+
+.badge-status.REGISTERED,
+.badge-status.IN_USE {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.badge-status.PENDING_DROPOFF {
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.badge-status.DECOMMISSIONED {
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.badge-status.E_WASTE_STORAGE,
+.badge-status.COLLECTION_REQUESTED {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.badge-status.COLLECTED,
+.badge-status.SENT_TO_RECYCLER {
+  background: #ede9fe;
+  color: #6d28d9;
+  border: 1px solid #ddd6fe;
+}
+
+.badge-status.RECYCLED {
+  background: #d1fae5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+/* Timeline */
+.ewaste-timeline {
+  position: relative;
+  padding-left: 1.75rem;
+}
+
+.ewaste-timeline::before {
+  content: '';
+  position: absolute;
+  left: 0.5rem;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  background: #e2e8f0;
+}
+
+.ewaste-timeline-item {
+  position: relative;
+  padding-bottom: 1.5rem;
+}
+
+.ewaste-timeline-item:last-child {
+  padding-bottom: 0;
+}
+
+.ewaste-timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -1.5rem;
+  top: 0.35rem;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: 3px solid var(--primary, #059669);
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.15);
+}
+
+/* QR Code Box */
+.qr-card-box {
+  background: #ffffff;
+  padding: 1.25rem;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  display: inline-block;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+/* Upload & Scanner Zone */
+.ewaste-upload-zone {
+  border: 2px dashed #cbd5e1;
+  border-radius: 14px;
+  padding: 2.75rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  background: #f8fafc;
+  transition: all 0.2s ease;
+}
+
+.ewaste-upload-zone:hover {
+  border-color: var(--primary, #059669);
+  background: #f0fdf4;
+}
+
+.ewaste-upload-zone.dragover {
+  border-color: var(--primary, #059669);
+  background: #dcfce7;
+  transform: scale(1.01);
+}
+
+/* Hero Badge */
+.hero-ewaste-banner {
+  background: linear-gradient(135deg, rgba(5, 150, 105, 0.08) 0%, rgba(6, 182, 212, 0.08) 100%);
+  border: 1px solid rgba(5, 150, 105, 0.2);
+  border-radius: 16px;
+  padding: 2rem 2.25rem;
+}

@@ -225,8 +225,11 @@
                 <p class="text-muted small mb-3">
                     Institutional IT hardware is tagged with dynamic Digital Passport QR codes. Tracks custody from Registration and Decommissioning to Collection and certified R2 Recycler dispatch.
                 </p>
-                <div class="mt-auto">
+                <div class="mt-auto d-flex justify-content-between align-items-center">
                     <span class="badge bg-light text-danger border">Public QR Verification</span>
+                    <a href="{{ url_for('ewaste.dashboard') }}" class="btn btn-sm btn-outline-danger py-1 px-2" style="font-size:0.8rem;">
+                        Open Tracker <i class="bi bi-arrow-right"></i>
+                    </a>
                 </div>
             </div>
         </div>

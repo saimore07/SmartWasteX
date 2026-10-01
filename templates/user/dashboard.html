@@ -16,9 +16,12 @@
                     Your waste segregation actions directly prevent landfill overflow and reduce carbon emissions across campus.
                 </p>
             </div>
-            <div class="col-lg-4 text-lg-end text-start">
-                <a href="{{ url_for('waste.scan') }}" class="btn btn-emerald btn-lg px-4 py-3 shadow-lg">
-                    <i class="bi bi-camera-fill me-2 fs-5"></i> Scan New Waste
+            <div class="col-lg-4 text-lg-end text-start d-flex gap-2 justify-content-lg-end flex-wrap">
+                <a href="{{ url_for('waste.scan') }}" class="btn btn-emerald btn-lg px-3 py-3 shadow-lg">
+                    <i class="bi bi-camera-fill me-2 fs-5"></i> Scan Waste
+                </a>
+                <a href="{{ url_for('ewaste.dashboard') }}" class="btn btn-outline-light btn-lg px-3 py-3 shadow-lg">
+                    <i class="bi bi-cpu me-1"></i> E-Waste
                 </a>
             </div>
         </div>

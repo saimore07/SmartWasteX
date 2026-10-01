@@ -169,11 +169,12 @@ class EWasteAsset(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     asset_id = db.Column(db.String(50), unique=True, nullable=False, index=True)  # e.g. 'EW-2026-0001'
     device_name = db.Column(db.String(150), nullable=False)
-    category = db.Column(db.String(80), nullable=False)  # 'Laptop', 'Smartphone', 'Circuit Board', etc.
+    category = db.Column(db.String(80), default='Computing', nullable=False)  # 'Laptop', 'Smartphone', 'Circuit Board', etc.
+    department = db.Column(db.String(100), default='General / Institutional', nullable=True)
     serial_number = db.Column(db.String(100), nullable=True)
     location = db.Column(db.String(100), nullable=False)
     current_status = db.Column(db.String(50), default='REGISTERED', nullable=False)
-    # Statuses: 'REGISTERED', 'DECOMMISSIONED', 'COLLECTION_REQUESTED', 'COLLECTED', 'SENT_TO_RECYCLER', 'RECYCLED'
+    # Statuses: 'REGISTERED', 'IN_USE', 'PENDING_DROPOFF', 'DECOMMISSIONED', 'E_WASTE_STORAGE', 'COLLECTION_REQUESTED', 'COLLECTED', 'SENT_TO_RECYCLER', 'RECYCLED'
     recycler = db.Column(db.String(150), default='EcoRecycle Solutions Hub')
     weight_kg = db.Column(db.Float, default=1.5)
     notes = db.Column(db.Text, nullable=True)
@@ -190,6 +191,7 @@ class EWasteAsset(db.Model):
             'asset_id': self.asset_id,
             'device_name': self.device_name,
             'category': self.category,
+            'department': self.department or 'General / Institutional',
             'serial_number': self.serial_number or 'N/A',
             'location': self.location,
             'current_status': self.current_status,
@@ -208,14 +210,32 @@ class EWasteLifecycle(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     asset_id = db.Column(db.Integer, db.ForeignKey('ewaste_assets.id'), nullable=False)
     status = db.Column(db.String(50), nullable=False)
+    old_status = db.Column(db.String(50), nullable=True)
+    new_status = db.Column(db.String(50), nullable=True)
+    location = db.Column(db.String(150), default='Campus Facilities', nullable=True)
     notes = db.Column(db.Text, nullable=True)
     updated_by = db.Column(db.String(100), default='Admin')
     timestamp = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def __init__(self, **kwargs):
+        # Support both 'status' and 'new_status' seamlessly
+        if 'new_status' in kwargs and 'status' not in kwargs:
+            kwargs['status'] = kwargs['new_status']
+        elif 'status' in kwargs and 'new_status' not in kwargs:
+            kwargs['new_status'] = kwargs['status']
+        super().__init__(**kwargs)
+
+    @property
+    def display_status(self):
+        return self.new_status or self.status
 
     def to_dict(self):
         return {
             'id': self.id,
             'status': self.status,
+            'old_status': self.old_status,
+            'new_status': self.new_status or self.status,
+            'location': self.location or '',
             'notes': self.notes or '',
             'updated_by': self.updated_by,
             'timestamp': self.timestamp.strftime('%Y-%m-%d %H:%M:%S') if self.timestamp else ''

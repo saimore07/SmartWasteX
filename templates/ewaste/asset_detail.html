@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}{{ asset.asset_id }} ({{ asset.device_name }}) — Custody Passport | SmartWasteX{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ewaste.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+
+            <!-- Breadcrumb Navigation -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb small">
+                    <li class="breadcrumb-item"><a href="{{ url_for('ewaste.dashboard') }}" class="text-success text-decoration-none">E-Waste Tracker</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('ewaste.public_ledger') }}" class="text-success text-decoration-none">Ledger</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ asset.asset_id }}</li>
+                </ol>
+            </nav>
+
+            <!-- Asset Header Card -->
+            <div class="eco-card p-4 mb-4 shadow-sm bg-white">
+                <div class="row align-items-center g-4">
+                    <div class="col-md-8">
+                        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+                            <h3 class="fw-bold text-dark mb-0">{{ asset.device_name }}</h3>
+                            <span class="badge-status {{ asset.current_status }}">
+                                {{ asset.current_status.replace('_', ' ') }}
+                            </span>
+                        </div>
+                        <div class="row g-2 text-secondary small mt-1">
+                            <div class="col-sm-6">
+                                <div><strong class="text-dark">Asset ID:</strong> <code class="text-success">{{ asset.asset_id }}</code></div>
+                                <div><strong class="text-dark">Department:</strong> {{ asset.department or 'Campus IT' }}</div>
+                                <div><strong class="text-dark">Category:</strong> {{ asset.category }}</div>
+                                <div><strong class="text-dark">Serial No:</strong> {{ asset.serial_number or 'N/A' }}</div>
+                            </div>
+                            <div class="col-sm-6">
+                                <div><strong class="text-dark">Current Location:</strong> <i class="bi bi-geo-alt text-danger me-1"></i>{{ asset.location }}</div>
+                                <div><strong class="text-dark">Weight:</strong> {{ asset.weight_kg }} kg</div>
+                                <div><strong class="text-dark">Designated Recycler:</strong> {{ asset.recycler }}</div>
+                                <div><strong class="text-dark">Registered:</strong> {{ asset.created_at.strftime('%d %b %Y, %H:%M UTC') if asset.created_at else 'N/A' }}</div>
+                            </div>
+                        </div>
+                        {% if asset.notes %}
+                        <div class="p-2 bg-light rounded mt-3 small text-muted">
+                            <i class="bi bi-chat-quote text-success me-1"></i> {{ asset.notes }}
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- QR Code Display Box -->
+                    <div class="col-md-4 text-center">
+                        <div class="qr-card-box">
+                            {% if asset.qr_code_filename %}
+                                {% if asset.qr_code_filename.startswith('qr_codes/') or asset.qr_code_filename.startswith('qrcodes/') %}
+                                    <img src="{{ url_for('static', filename=asset.qr_code_filename) }}" alt="QR Code for {{ asset.asset_id }}" style="width: 140px; height: 140px;" class="img-fluid">
+                                {% else %}
+                                    <img src="{{ url_for('static', filename='qr_codes/' + asset.qr_code_filename) }}" alt="QR Code for {{ asset.asset_id }}" style="width: 140px; height: 140px;" class="img-fluid">
+                                {% endif %}
+                            {% else %}
+                                <div class="p-3 text-muted small"><i class="bi bi-qr-code fs-1 d-block mb-1"></i>No QR Generated</div>
+                            {% endif %}
+                            <div class="small fw-bold text-dark mt-2">{{ asset.asset_id }}</div>
+                            <div class="small text-muted" style="font-size: 0.72rem;">Official Circular Passport</div>
+                            <div class="mt-2">
+                                <a href="{{ url_for('ewaste.public_ewaste_passport', asset_id=asset.asset_id) }}" class="btn btn-sm btn-outline-success py-1 px-2" target="_blank" style="font-size:0.75rem;">
+                                    <i class="bi bi-box-arrow-up-right me-1"></i> Public Passport
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- FSM Lifecycle Progress Pipeline -->
+            {% set states = ['PENDING_DROPOFF', 'IN_USE', 'DECOMMISSIONED', 'E_WASTE_STORAGE', 'COLLECTED', 'RECYCLED'] %}
+            {% set state_icons = {'PENDING_DROPOFF':'box-arrow-in-down', 'IN_USE':'laptop', 'DECOMMISSIONED':'slash-circle', 'E_WASTE_STORAGE':'archive', 'COLLECTED':'truck', 'RECYCLED':'recycle'} %}
+            {% set current_status_canonical = 'IN_USE' if asset.current_status == 'REGISTERED' else ('E_WASTE_STORAGE' if asset.current_status == 'COLLECTION_REQUESTED' else asset.current_status) %}
+            {% set current_idx = states.index(current_status_canonical) if current_status_canonical in states else 1 %}
+
+            <div class="eco-card p-4 mb-4 shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-signpost-split text-success me-2"></i> Custody Lifecycle Progress
+                    </h5>
+                    <span class="badge bg-success-subtle text-success">FSM State Machine Guarded</span>
+                </div>
+
+                <div class="fsm-pipeline-container justify-content-lg-center py-2">
+                    {% for state in states %}
+                    {% set idx = loop.index0 %}
+                    <div class="fsm-step">
+                        <div class="fsm-dot {{ 'completed' if idx < current_idx else ('active' if idx == current_idx else 'pending') }} mx-auto mb-1">
+                            <i class="bi bi-{{ state_icons[state] }}"></i>
+                        </div>
+                        <span class="small {{ 'text-dark fw-bold' if idx <= current_idx else 'text-muted' }}" style="font-size:0.65rem;">
+                            {{ state.replace('_', ' ') }}
+                        </span>
+                    </div>
+                    {% if not loop.last %}
+                    <div class="fsm-connector {{ 'completed' if idx < current_idx else 'pending' }}"></div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Admin Custody Transfer Form (Visible only if Admin) -->
+            {% if session.get('role') == 'admin' %}
+            <div class="eco-card p-4 mb-4 shadow-sm bg-white border-top border-4 border-warning">
+                <h5 class="fw-bold mb-3 text-dark">
+                    <i class="bi bi-shield-lock-fill text-warning me-2"></i> Authorized Custody Transfer
+                </h5>
+                {% if allowed_next_states %}
+                <form action="{{ url_for('ewaste.handle_qr_scan', asset_id=asset.asset_id) }}" method="POST">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small">Advance Custody Status <span class="text-danger">*</span></label>
+                            <select name="new_status" class="form-select" required>
+                                {% for state in allowed_next_states %}
+                                <option value="{{ state }}">{{ state.replace('_', ' ') }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small">New Custody Location <span class="text-danger">*</span></label>
+                            <input type="text" name="location" class="form-control" value="{{ asset.location }}" placeholder="e.g. Central E-Waste Depot, Logistics Bay" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-semibold small">Audit Notes / Manifest Ref</label>
+                            <input type="text" name="remarks" class="form-control" placeholder="e.g. Handover ticket #948 logged">
+                        </div>
+                        <div class="col-12 mt-3">
+                            <button type="submit" class="btn btn-emerald w-100 py-2 fw-semibold">
+                                <i class="bi bi-arrow-left-right me-1"></i> Commit Authorized Custody Transfer
+                            </button>
+                        </div>
+                    </div>
+                </form>
+                {% else %}
+                <div class="text-center py-2 text-success">
+                    <i class="bi bi-check-circle-fill fs-3 d-block mb-1"></i>
+                    <strong>Terminal Lifecycle Reached (RECYCLED).</strong> Custody chain is complete and verified.
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Custody Timeline / Audit Trail -->
+            <div class="eco-card p-4 shadow-sm bg-white">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="fw-bold mb-0">
+                        <i class="bi bi-clock-history text-primary me-2"></i> Immutable Custody Timeline
+                    </h5>
+                    <span class="badge bg-light text-muted border">{{ logs|length }} Events Logged</span>
+                </div>
+
+                {% if logs %}
+                <div class="ewaste-timeline">
+                    {% for log in logs %}
+                    <div class="ewaste-timeline-item">
+                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                            <div>
+                                {% if log.old_status %}
+                                <span class="badge-status {{ log.old_status }}" style="font-size:0.68rem;">{{ log.old_status.replace('_', ' ') }}</span>
+                                <i class="bi bi-arrow-right mx-1 text-muted" style="font-size:0.75rem;"></i>
+                                {% endif %}
+                                <span class="badge-status {{ log.display_status }}" style="font-size:0.75rem;">{{ log.display_status.replace('_', ' ') }}</span>
+                            </div>
+                            <small class="text-muted">{{ log.timestamp.strftime('%d %b %Y, %H:%M:%S UTC') if log.timestamp else 'N/A' }}</small>
+                        </div>
+                        <div class="mt-1 small text-secondary">
+                            <span><i class="bi bi-person-fill me-1 text-primary"></i><strong>Actor:</strong> {{ log.updated_by }}</span>
+                            {% if log.location %} &middot; <span><i class="bi bi-geo-alt-fill me-1 text-danger"></i>{{ log.location }}</span>{% endif %}
+                        </div>
+                        {% if log.notes %}
+                        <div class="small text-muted mt-2 p-2 bg-light rounded">
+                            <em>{{ log.notes }}</em>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="text-center py-4 text-muted">
+                    No custody transition events logged yet.
+                </div>
+                {% endif %}
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

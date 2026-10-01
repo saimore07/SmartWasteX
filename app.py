@@ -83,6 +83,21 @@ def init_and_seed_db(app):
     except Exception:
         pass
 
+    # Ensure e-waste columns exist on existing databases
+    for col_sql in [
+        "ALTER TABLE ewaste_assets ADD COLUMN department VARCHAR(100) DEFAULT 'General / Institutional'",
+        "ALTER TABLE ewaste_lifecycle ADD COLUMN old_status VARCHAR(50)",
+        "ALTER TABLE ewaste_lifecycle ADD COLUMN new_status VARCHAR(50)",
+        "ALTER TABLE ewaste_lifecycle ADD COLUMN location VARCHAR(150) DEFAULT 'Campus Facilities'"
+    ]:
+        try:
+            from sqlalchemy import text
+            with db.engine.connect() as conn:
+                conn.execute(text(col_sql))
+                conn.commit()
+        except Exception:
+            pass
+
     demo_user_email = os.environ.get('DEMO_USER_EMAIL', 'user1@smartwastex.in')
     demo_user_password = os.environ.get('DEMO_USER_PASSWORD', 'user1@123')
     demo_admin_email = os.environ.get('DEMO_ADMIN_EMAIL', 'admin@smartwastex.in')

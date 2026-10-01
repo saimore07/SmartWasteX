@@ -21,6 +21,7 @@
     
     <!-- Custom CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/ewaste.css') }}">
     
     {% block extra_head %}{% endblock %}
 </head>
@@ -54,8 +55,8 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link-custom {% if request.endpoint and 'ewaste' in request.endpoint %}active{% endif %}" href="{{ url_for('ewaste.admin_ewaste') }}">
-                                <i class="bi bi-cpu"></i> E-Waste
+                            <a class="nav-link-custom {% if request.endpoint and 'ewaste' in request.endpoint %}active{% endif %}" href="{{ url_for('ewaste.dashboard') }}">
+                                ♻ E-Waste Tracker
                             </a>
                         </li>
                         <li class="nav-item">
@@ -81,6 +82,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link-custom {% if request.endpoint and 'ewaste' in request.endpoint %}active{% endif %}" href="{{ url_for('ewaste.dashboard') }}">
+                                ♻ E-Waste Tracker
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link-custom {% if request.endpoint == 'user.history' %}active{% endif %}" href="{{ url_for('user.history') }}">
                                 <i class="bi bi-clock-history"></i> History
                             </a>
@@ -100,6 +106,11 @@
                         <li class="nav-item">
                             <a class="nav-link-custom {% if request.endpoint == 'index' %}active{% endif %}" href="{{ url_for('index') }}">
                                 <i class="bi bi-house-door"></i> Home
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link-custom {% if request.endpoint and 'ewaste' in request.endpoint %}active{% endif %}" href="{{ url_for('ewaste.dashboard') }}">
+                                ♻ E-Waste Tracker
                             </a>
                         </li>
                         <li class="nav-item">
