@@ -14,6 +14,10 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _db_url or f"sqlite:///{os.path.join(str(basedir), 'instance', 'smartwastex.db')}"
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
+    # Security: Session cookie hardening
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    
     # Upload and static assets
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', os.path.join(str(basedir), 'static', 'uploads'))
     QR_FOLDER = os.environ.get('QR_FOLDER', os.path.join(str(basedir), 'static', 'qr_codes'))
@@ -27,4 +31,3 @@ class Config:
 
     # IoT Hardware Gateway Security
     IOT_API_KEY = os.environ.get('IOT_API_KEY', 'smartwastex-iot-device-key-2026')
-

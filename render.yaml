@@ -16,4 +16,7 @@ services:
         value: "5242880"
       - key: YOLO_IMGSZ
         value: "416"
-
+      - key: INFERENCE_LOCK_TIMEOUT
+        value: "15.0"
+      - key: IOT_API_KEY
+        value: "smartwastex-iot-device-key-2026"

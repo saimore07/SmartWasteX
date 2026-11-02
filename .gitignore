@@ -3,37 +3,74 @@ __pycache__/
 *.py[cod]
 *$py.class
 
-# Environments & Dependencies
+# C-extension / Build artifacts
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Python Virtual Environments
 .venv/
 venv/
 ENV/
 env/
+env.bak/
+venv.bak/
 
-# Environment Variables
+# Environment Variables & Secrets
 .env
 *.env
 .env.*
+!.env.example
 
-# IDE & Editors
+# IDEs & Text Editors
 .idea/
 .vscode/
 *.swp
 *.swo
+*~
 
-# Database & Instance
-instance/
-*.db
-*.sqlite3
+# Operating System Metadata
+.DS_Store
+Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
 
-# Testing & Coverage
+# Testing, Profiling & Coverage
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.mypy_cache/
+.ruff_cache/
 
-# Logs & Temporary files
+# Application Logs & Crash Dumps
 *.log
-static/uploads/*.tmp
-static/uploads/sample_*
-static/uploads/upload_*
+*.pid
+
+# Local SQLite Database & Ephemeral Instance Data
+instance/*
+!instance/.gitkeep
+*.db
+*.sqlite3
+*.backup
+
+# Ephemeral Uploads & Dynamic QR Codes (Preserve samples and .gitkeep)
+static/uploads/*
+!static/uploads/.gitkeep
 !static/uploads/samples/
-.DS_Store
+!static/uploads/samples/*
+static/qr_codes/*
+!static/qr_codes/.gitkeep
+!static/qr_codes/EW-2026-*.png

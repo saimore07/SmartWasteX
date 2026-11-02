@@ -6,12 +6,12 @@
 
 ## 📌 Executive Summary
 **SmartWasteX** is an institutional circular economy platform developed for university campuses and municipal complexes. It unifies four critical pillars of waste management into a single, cohesive web application:
-1. **AI-Powered Waste Segregation Scanner**: Uses OpenCV computer vision and semantic feature extraction to classify waste items into Biodegradable, Dry Recyclable, and Hazardous/E-Waste streams, guiding users to nearest smart bins.
+1. **AI-Powered Waste Segregation Scanner**: Uses a hybrid YOLOv8 Nano deep learning computer vision model with OpenCV feature extraction to classify waste items into Biodegradable, Dry Recyclable, and Hazardous/E-Waste streams, guiding users to nearest smart bins.
 2. **Institutional E-Waste Lifecycle Tracking**: Issues tamper-evident **Digital Passports** with verifiable QR codes for university electronics (laptops, phones, PCBs), tracking custody from registration through certified R2 recycling.
 3. **IoT Smart-Bin Monitoring & Telemetry Network**: Hardware-ready telemetry processing ultrasonic fill depth, load-cell weight, and temperature probes with automatic overflow warnings and high-priority collection ticketing.
 4. **Community Incentives (Green Credits)**: Database-backed points ledger rewarding students and faculty for verified disposal actions, linked to real-time campus leaderboards and SDG 11 carbon abatement analytics.
 
-> **Note on IoT Telemetry:** Smart bin sensor data is ingested via authenticated REST endpoints (`POST /api/iot/bin-update`, `POST /api/iot/telemetry`) protected with device API keys, accepting real-world edge microcontroller telemetry.
+> **Note on IoT Telemetry:** Smart bin sensor data is ingested via authenticated REST endpoints (`POST /api/iot/bin-update`, `POST /api/iot/telemetry`) protected with device API keys, accepting real-world edge microcontroller telemetry (ESP32, Raspberry Pi, Arduino).
 
 ---
 
@@ -55,8 +55,8 @@
 +------------+------------+     +----------------+------------+     +----------------+------------+
 |      AI Classifier      |     |         IoT Service        |     |      QR Code Service       |
 |  (services/classifier)  |     |   (services/iot_service)   |     |  (services/qr_service)     |
-|   OpenCV Feature /      |     |   Physical sensor gateway, |     |   Generates scannable      |
-|   Color Space & Edges   |     |   tolerances & alerts      |     |   asset passport PNGs      |
+|   YOLOv8 Nano (CPU) +   |     |   Physical sensor gateway, |     |   Generates scannable      |
+|   OpenCV Feature Extr.  |     |   tolerances & alerts      |     |   asset passport PNGs      |
 +------------+------------+     +----------------+------------+     +----------------+------------+
              |                                   |                                   |
              |      +----------------------------+----------------------------+      |
@@ -82,7 +82,7 @@
        +--------------+--------------+                       +--------------+--------------+
        |   User Dashboard & Views    |                       |  Admin Command Center & GIS |
        | - Green Credits Balance     |                       | - Live Sensor Matrix        |
-       | - Scan Camera & AI Result   |                       | - IoT Simulation Controls   |
+       | - Scan Camera & AI Result   |                       | - Live Telemetry Gateway    |
        | - Activity History Ledger   |                       | - Collection Ticket Queue   |
        | - Campus Leaderboard        |                       | - E-Waste Asset Lifecycle   |
        | - Environmental Equivalents |                       | - Leaflet OpenStreetMap GIS |
@@ -96,25 +96,27 @@
 | Layer | Technologies Used |
 |---|---|
 | **Backend** | Python 3.12, Flask 3.1, Werkzeug (PBKDF2 Password Hashing), Jinja2 |
-| **Database** | SQLite, SQLAlchemy 2.0 (Flask-SQLAlchemy 3.1) |
+| **Database** | SQLite, SQLAlchemy 2.0 (Flask-SQLAlchemy 3.1), PostgreSQL compatible |
 | **Frontend** | HTML5, Vanilla CSS3 (Custom Design System), JavaScript (ES6+), Bootstrap 5.3, Bootstrap Icons |
 | **Visual Analytics** | Chart.js 4.4 (Doughnut, Horizontal Bar, Stacked Area, Bar Trends) |
 | **Geographic GIS** | Leaflet 1.9 + OpenStreetMap |
-| **Computer Vision (AI)**| OpenCV 5.0 (Canny edge detection, HSV color space distribution, perceptual heuristics) |
+| **Computer Vision (AI)**| YOLOv8 Nano (`yolov8n.pt`, Ultralytics, PyTorch CPU) + OpenCV 4.8 Headless |
 | **Asset Identity** | Python `qrcode` library, Pillow (PIL) |
-| **Test Automation** | Pytest 9.1 |
+| **WSGI Server** | Gunicorn 21.2 (`gthread` worker mode) |
+| **Monitoring** | `psutil` (Lightweight memory telemetry) |
+| **Test Automation** | Pytest 9.1 (49 automated unit and integration tests) |
 
 ---
 
 ## 🗄️ Database Schema & Entities
 
-The SQLite database (`instance/smartwastex.db`) is structured into 8 relational tables:
+The relational database is structured into 8 models:
 1. **`users`**: User identities, hashed credentials, roles (`user` or `admin`), total green credits, recycled items count, cumulative diverted kg.
 2. **`waste_scans`**: Historical camera captures, detected item labels, stream categories, confidence scores, recommendations, assigned bins.
 3. **`green_credit_transactions`**: Auditable points ledger recording credit grants, timestamped descriptions, and reference identifiers.
 4. **`bins`**: Virtual smart receptacles with telemetry fields (`fill_percentage`, `weight_kg`, `temperature_c`, `battery_level`, `status`, `lat`, `lng`).
 5. **`bin_readings`**: Time-series log of sensor updates for historical capacity analysis.
-6. **`collection_requests`**: Automated dispatch tickets (`PENDING`, `ASSIGNED`, `COLLECTED`, `COMPLETED`) with dynamic priorities (`MEDIUM`, `HIGH`, `URGENT`).
+6. **`collection_requests`**: Automated dispatch tickets (`PENDING`, `SCHEDULED`, `ASSIGNED`, `COLLECTED`, `COMPLETED`) with dynamic priorities (`MEDIUM`, `HIGH`, `URGENT`).
 7. **`ewaste_assets`**: Institutional hardware assets with unique IDs (`EW-2026-XXXX`), serial numbers, location, recycler, and QR code paths.
 8. **`ewaste_lifecycle`**: Immutable chain-of-custody audit log tracking status transitions and inspector signatures.
 
@@ -123,7 +125,7 @@ The SQLite database (`instance/smartwastex.db`) is structured into 8 relational 
 ## 🚀 Quickstart Installation & Execution
 
 ### Prerequisites
-- Python 3.10+ (Tested on Python 3.12)
+- Python 3.10+ (Tested on Python 3.12.9)
 - Pip package manager
 
 ### 1. Clone or Open Project Directory
@@ -135,12 +137,16 @@ cd SmartWasteX
 ```bash
 pip install -r requirements.txt
 ```
+*For local test suites, also install testing dependencies:*
+```bash
+pip install -r requirements-dev.txt
+```
 
 ### 3. Run Automated Tests
 ```bash
 pytest -v
 ```
-*(Runs 16 unit and integration test suites verifying auth, AI classification, smart bins, e-waste, and role-based access control).*
+*(Runs 49 unit and integration test suites verifying auth, AI classification, smart bins, e-waste, user features, and role-based access control).*
 
 ### 4. Run the 26-Step End-To-End Verification
 ```bash
@@ -155,6 +161,33 @@ Open your browser and navigate to:
 ```
 http://127.0.0.1:5000
 ```
+
+---
+
+## ☁️ Production Deployment on Render
+
+SmartWasteX is fully optimized for single-click deployment on Render's 512 MB RAM Free tier or paid services.
+
+### 1. Render Blueprint (`render.yaml`)
+SmartWasteX includes an audited `render.yaml` specification:
+- **Build Command**: `pip install -r requirements.txt`
+- **Start Command**: `gunicorn app:app --workers 1 --threads 2 --worker-class gthread --timeout 120 --max-requests 500 --max-requests-jitter 50`
+
+### 2. Environment Variables Configuration
+
+| Variable | Recommended Production Value | Description |
+|---|---|---|
+| `SECRET_KEY` | *(Auto-generated / Secure Random)* | Flask session cryptographic key |
+| `FLASK_ENV` | `production` | Enables production security guards |
+| `MAX_CONTENT_LENGTH` | `5242880` (5 MB) | Guards memory against oversized uploads |
+| `MAX_IMAGE_DIMENSION` | `1280` | Automatically downscales high-res photos |
+| `YOLO_IMGSZ` | `416` | Memory-efficient inference resolution (saves ~23MB RAM) |
+| `INFERENCE_LOCK_TIMEOUT` | `15.0` | Serializes AI scanning to prevent memory spikes |
+| `IOT_API_KEY` | *(Custom secret)* | Protects hardware sensor telemetry endpoints |
+| `DATABASE_URL` | *(Optional PostgreSQL URL)* | Supports Render PostgreSQL or persistent disk |
+
+### 3. Data Persistence Notes
+- **SQLite & Ephemeral Disks**: Render free instances use an ephemeral filesystem where local files reset upon redeployment or instance spin-down. For persistent production deployments, attach a Render Persistent Disk (mounted at `/var/data` or `instance/`) or configure a managed Render PostgreSQL database (`DATABASE_URL=postgresql://...`).
 
 ---
 
@@ -175,11 +208,12 @@ For frictionless evaluation, 1-click credential prefill buttons are provided dir
 
 ### 1. AI Waste Classifier (`services/classifier.py`)
 - **Pipeline Architecture**:
-  1. Inspects image resolution and loads image tensor using OpenCV.
-  2. Analyzes HSV color distribution (e.g. green/brown tones indicate organic material; cyan/blue indicates transparent plastics; dark high-contrast indicates electronics).
-  3. Computes edge density using Canny algorithms (complex electronic circuitry features high gradient densities >0.12).
-  4. Matches against semantic item vocabularies with realistic confidence metrics (88% - 97%).
-  5. Fallback heuristic cleanly surfaces explanation and routes to correct bin.
+  1. Inspects image resolution, validates against decompression bombs (`Image.MAX_IMAGE_PIXELS = 10_000_000`).
+  2. Resizes in-place preserving aspect ratio to max 1280px along longest edge.
+  3. Reuses decoded in-memory BGR array across YOLO inference, bounding-box annotations, and OpenCV feature extraction (zero redundant disk decodings).
+  4. Runs YOLOv8n object detection under single-thread CPU execution (`torch.inference_mode()`, `torch.set_num_threads(1)`).
+  5. Serializes concurrent scans using a thread-safe lock (`_inference_lock`), returning HTTP 503 if busy to prevent memory exhaustion.
+  6. Annotates bounding boxes directly on the image and writes to disk once.
 - **Supported Streams**:
   - **Biodegradable** (+5 Credits): Banana peel, apple core, organic food waste, garden leaves.
   - **Dry Recyclable** (+10 Credits): PET plastic bottles, aluminum cans, newspapers, cardboards.
@@ -224,7 +258,7 @@ For frictionless evaluation, 1-click credential prefill buttons are provided dir
    - Click **Scan New Waste**. Click the **Lithium Battery** demo sample.
    - Review AI classification: item detected as *Lithium Battery*, category *Hazardous / E-Waste*, confidence *96%*, and nearest bin *BIN-04*.
    - Click **Dispose Responsibly & Claim +25 Credits**. Verify instant balance update.
-2. **Step 2 (0:45 - 1:45) — Admin Command Center & IoT Simulation**:
+2. **Step 2 (0:45 - 1:45) — Admin Command Center & Live Telemetry Monitoring**:
    - Log out, click **Demo Admin / Officer**, log in.
    - Show the 6 KPI cards, stream distribution doughnut chart, and waste trend graph.
    - Navigate to **Smart Bins** (`/admin/bins`).
