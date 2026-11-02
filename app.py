@@ -56,7 +56,7 @@ def create_app(config_class=Config):
 
     @app.errorhandler(413)
     def file_too_large(e):
-        return render_template('404.html', message="Uploaded file exceeds the maximum 16MB limit."), 413
+        return render_template('404.html', message="Image is too large. Please upload an image smaller than 5 MB."), 413
 
     # Seed Database on initial setup
     with app.app_context():

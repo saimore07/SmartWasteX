@@ -4,7 +4,7 @@ services:
     runtime: python
     plan: free
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --workers 1 --threads 2 --worker-class gthread --timeout 120 --max-requests 500 --max-requests-jitter 50
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.9
@@ -12,3 +12,8 @@ services:
         generateValue: true
       - key: FLASK_ENV
         value: production
+      - key: MAX_CONTENT_LENGTH
+        value: "5242880"
+      - key: YOLO_IMGSZ
+        value: "416"
+

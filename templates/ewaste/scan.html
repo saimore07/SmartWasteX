@@ -27,7 +27,7 @@
                     <div class="ewaste-upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click();">
                         <i class="bi bi-cloud-arrow-up display-4 text-success mb-2 d-block"></i>
                         <h5 class="fw-bold mb-1">Click to upload or drag &amp; drop item photo</h5>
-                        <p class="text-muted small mb-2">Supports JPG, PNG, WEBP &middot; Max 16 MB</p>
+                        <p class="text-muted small mb-2">Supports JPG, PNG, WEBP &middot; Max 5 MB</p>
                         <div id="fileName" class="text-primary fw-semibold small"></div>
                     </div>
                     <input type="file" name="waste_image" id="fileInput" accept="image/*" class="d-none">
@@ -151,13 +151,27 @@
     const fileInput = document.getElementById('fileInput');
     const fileName  = document.getElementById('fileName');
     const scanBtn   = document.getElementById('scanBtn');
+    const scanForm  = document.getElementById('scanForm');
     const zone      = document.getElementById('uploadZone');
+    const MAX_FILE_BYTES = 5 * 1024 * 1024; // 5 MB
+
+    function handleFile(file) {
+        if (!file) return;
+        if (file.size > MAX_FILE_BYTES) {
+            alert('Image is too large. Please upload an image smaller than 5 MB.');
+            fileInput.value = '';
+            fileName.textContent = '';
+            scanBtn.disabled = true;
+            return;
+        }
+        fileName.textContent = 'Selected: ' + file.name + ' (' + (file.size / (1024 * 1024)).toFixed(2) + ' MB)';
+        scanBtn.disabled = false;
+    }
 
     if (fileInput) {
         fileInput.addEventListener('change', () => {
             if (fileInput.files.length) {
-                fileName.textContent = 'Selected: ' + fileInput.files[0].name;
-                scanBtn.disabled = false;
+                handleFile(fileInput.files[0]);
             }
         });
     }
@@ -172,8 +186,16 @@
         zone.addEventListener('drop', ev => {
             if (ev.dataTransfer.files.length) {
                 fileInput.files = ev.dataTransfer.files;
-                fileName.textContent = 'Selected: ' + ev.dataTransfer.files[0].name;
-                scanBtn.disabled = false;
+                handleFile(ev.dataTransfer.files[0]);
+            }
+        });
+    }
+
+    if (scanForm) {
+        scanForm.addEventListener('submit', function(e) {
+            if (scanBtn && !scanBtn.disabled) {
+                scanBtn.disabled = true;
+                scanBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> Analyzing your waste image with AI...';
             }
         });
     }

@@ -3,14 +3,109 @@ SmartWasteX AI Waste Classifier Service
 =======================================
 Combines YOLOv8 deep learning computer vision object detection with
 OpenCV color/edge feature extraction and semantic heuristics.
-Classifies items into the institutional waste streams and provides
+Classifies items into institutional waste streams and provides
 visual bounding box annotations and drop-off guidance.
+
+Optimized for memory-constrained production environments (Render 512 MB RAM).
+- Single model initialization per process
+- Thread-safe single-inference lock preventing concurrent memory spikes
+- Aspect-ratio-preserving image preprocessing (max 1280px)
+- Single-thread PyTorch inference mode with reduced imgsz (416)
+- In-memory array reuse preventing duplicate decodings
+- Explicit tensor/array release and lightweight memory tracking via psutil
 """
 
 import os
+import gc
+import time
+import logging
+import threading
 import cv2
 import numpy as np
+from PIL import Image, ImageOps
+import psutil
+
+# Configure PyTorch CPU execution
+try:
+    import torch
+    torch.set_num_threads(1)
+except Exception:
+    torch = None
+
+# Protect against decompression bomb attacks
+Image.MAX_IMAGE_PIXELS = 10_000_000
+
+# Setup module logger
+logger = logging.getLogger("SmartWasteX.Classifier")
+if not logger.handlers:
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
 from services.recommendation import get_recommendation_for_category
+
+
+class InferenceBusyError(Exception):
+    """Raised when YOLO inference lock cannot be acquired within the configured timeout."""
+    pass
+
+
+def get_process_memory_mb() -> float:
+    """Returns current process RSS memory in megabytes."""
+    try:
+        proc = psutil.Process(os.getpid())
+        return round(proc.memory_info().rss / (1024 * 1024), 2)
+    except Exception:
+        return 0.0
+
+
+def validate_and_preprocess_image(image_path: str, max_dim: int = 1280) -> np.ndarray:
+    """
+    Validates an uploaded image and resizes it in-place to max_dim (preserving aspect ratio).
+    Protects against decompression bombs, truncated/corrupted files, and high-resolution spikes.
+    Returns the decoded BGR NumPy array for direct reuse by YOLO and OpenCV.
+    """
+    if not os.path.exists(image_path) or os.path.getsize(image_path) == 0:
+        raise ValueError("Image file is missing or empty.")
+
+    # 1. Pillow verification & decompression bomb guard
+    try:
+        with Image.open(image_path) as pil_img:
+            pil_img.verify()
+    except Exception as e:
+        raise ValueError(f"Corrupted or invalid image: {e}")
+
+    # 2. Re-open to read pixels & apply EXIF orientation transpose
+    try:
+        with Image.open(image_path) as pil_img:
+            pil_img = ImageOps.exif_transpose(pil_img)
+            if pil_img.mode not in ('RGB', 'L'):
+                pil_img = pil_img.convert('RGB')
+            img_np = np.array(pil_img)
+
+            if len(img_np.shape) == 2:
+                img_bgr = cv2.cvtColor(img_np, cv2.COLOR_GRAY2BGR)
+            elif img_np.shape[2] == 4:
+                img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGBA2BGR)
+            else:
+                img_bgr = cv2.cvtColor(img_np, cv2.COLOR_RGB2BGR)
+    except Exception as e:
+        img_bgr = cv2.imread(image_path)
+        if img_bgr is None:
+            raise ValueError(f"Unable to decode image pixels: {e}")
+
+    h, w = img_bgr.shape[:2]
+
+    # 3. Downscale if dimensions exceed max_dim (preserving aspect ratio)
+    if max(h, w) > max_dim:
+        scale = max_dim / float(max(h, w))
+        new_w = max(1, int(w * scale))
+        new_h = max(1, int(h * scale))
+        img_bgr = cv2.resize(img_bgr, (new_w, new_h), interpolation=cv2.INTER_AREA)
+        # Update disk file with downscaled version for storage efficiency
+        cv2.imwrite(image_path, img_bgr)
+        logger.info(f"[SCAN] Resized {w}x{h} -> {new_w}x{new_h} (max_dim={max_dim})")
+
+    return img_bgr
+
 
 # Waste Stream Definitions with visual color coding & bins
 WASTE_STREAMS = {
@@ -124,6 +219,7 @@ class WasteClassifier:
     """
     Unified AI Waste Classification & E-Waste Computer Vision Engine.
     Combines YOLOv8 Object Detection with OpenCV and semantic matching.
+    Serialized and memory-governed for Render 512 MB RAM deployment.
     """
 
     KNOWN_ITEMS = {
@@ -158,13 +254,17 @@ class WasteClassifier:
     def __init__(self):
         self.model_type = "YOLOv8 & OpenCV Hybrid AI Waste Classifier"
         self.yolo = None
+        self.imgsz = int(os.environ.get('YOLO_IMGSZ', 416))
+        self.lock_timeout = float(os.environ.get('INFERENCE_LOCK_TIMEOUT', 15.0))
+        self.max_dimension = int(os.environ.get('MAX_IMAGE_DIMENSION', 1280))
+        self._inference_lock = threading.Lock()
         self._init_yolo()
 
     def _init_yolo(self):
-        """Attempts to load YOLOv8 model weights."""
+        """Attempts to load YOLOv8 model weights once per process."""
+        mem_before = get_process_memory_mb()
         try:
             from ultralytics import YOLO
-            # Search possible paths for yolov8n.pt
             possible_paths = [
                 os.path.join(os.getcwd(), 'yolov8n.pt'),
                 os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'yolov8n.pt'),
@@ -176,42 +276,47 @@ class WasteClassifier:
                     self.model_type = "YOLOv8 Deep Learning & Computer Vision Classifier"
                     break
             if not self.yolo:
-                # Fallback to YOLO init (will check cache)
                 self.yolo = YOLO('yolov8n.pt')
                 self.model_type = "YOLOv8 Deep Learning & Computer Vision Classifier"
+
+            mem_after = get_process_memory_mb()
+            logger.info(f"[SCAN] Model loaded: {self.model_type} (imgsz={self.imgsz}) | Base RAM: {mem_after} MB (+{round(mem_after - mem_before, 2)} MB)")
         except Exception as e:
-            # Fallback gracefully to OpenCV heuristics
             self.yolo = None
             self.model_type = "OpenCV Feature Heuristic & Semantic Vision Classifier"
+            logger.warning(f"[SCAN] YOLO initialization skipped/failed: {e}. Falling back to OpenCV heuristics.")
 
-    def analyze_image_features(self, image_path):
-        """Extracts HSV and Canny edge features via OpenCV."""
-        if not os.path.exists(image_path):
-            return None
-
+    def analyze_image_features(self, image_path: str = None, img_bgr: np.ndarray = None) -> dict:
+        """Extracts HSV and Canny edge features via OpenCV, reusing in-memory array if available."""
         try:
-            img = cv2.imread(image_path)
-            if img is None:
-                return None
+            if img_bgr is None:
+                if not image_path or not os.path.exists(image_path):
+                    return None
+                img_bgr = cv2.imread(image_path)
+                if img_bgr is None:
+                    return None
 
-            resized = cv2.resize(img, (224, 224))
+            resized = cv2.resize(img_bgr, (224, 224), interpolation=cv2.INTER_AREA)
             hsv = cv2.cvtColor(resized, cv2.COLOR_BGR2HSV)
             gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
 
-            mean_hue = np.mean(hsv[:, :, 0])
-            mean_sat = np.mean(hsv[:, :, 1])
-            mean_val = np.mean(hsv[:, :, 2])
+            mean_hue = float(np.mean(hsv[:, :, 0]))
+            mean_sat = float(np.mean(hsv[:, :, 1]))
+            mean_val = float(np.mean(hsv[:, :, 2]))
 
             edges = cv2.Canny(gray, 80, 180)
-            edge_density = np.sum(edges > 0) / (224 * 224)
+            edge_density = float(np.sum(edges > 0) / (224 * 224))
+
+            del resized, hsv, gray, edges
 
             return {
-                'hue': float(mean_hue),
-                'sat': float(mean_sat),
-                'val': float(mean_val),
-                'edge_density': float(edge_density)
+                'hue': mean_hue,
+                'sat': mean_sat,
+                'val': mean_val,
+                'edge_density': edge_density
             }
         except Exception as e:
+            logger.warning(f"[SCAN] Error in OpenCV feature extraction: {e}")
             return None
 
     def _map_coco_label(self, label: str):
@@ -221,14 +326,46 @@ class WasteClassifier:
             return CATEGORY_MAP[label_lower]
         return ("General / Non-Recyclable", label.title())
 
-    def analyze(self, image_path: str, hint: str = "") -> dict:
+    def analyze(self, image_path: str, hint: str = "", img_bgr: np.ndarray = None) -> dict:
         """
-        Run YOLOv8 inference, annotate image with bounding boxes,
+        Run YOLOv8 inference under a concurrency lock, annotate image with bounding boxes,
         and return human-friendly stream metadata for the UI.
+        Falls back smoothly to hint and OpenCV heuristics if no detection.
         """
+        t0 = time.time()
+        base_name = os.path.basename(image_path) if image_path else "memory_buffer"
+        mem_start = get_process_memory_mb()
+        logger.info(f"[SCAN] Request received: {base_name} | Starting RAM: {mem_start} MB")
+
+        # 1. Preprocess & validate image if not preloaded
+        if img_bgr is None:
+            img_bgr = validate_and_preprocess_image(image_path, max_dim=self.max_dimension)
+
+        h, w = img_bgr.shape[:2]
+        logger.info(f"[SCAN] Image validated & preprocessed | Dimensions: {w}x{h}")
+
+        # 2. Attempt YOLOv8 Deep Learning Inference under thread lock
         if self.yolo:
+            acquired = self._inference_lock.acquire(timeout=self.lock_timeout)
+            if not acquired:
+                logger.warning(f"[SCAN] Concurrency limit: lock acquisition timed out ({self.lock_timeout}s)")
+                raise InferenceBusyError("The scanning service is currently busy. Please try again.")
+
             try:
-                results = self.yolo.predict(source=image_path, conf=0.25, verbose=False)
+                t_infer_0 = time.time()
+                with torch.inference_mode():
+                    results = self.yolo.predict(
+                        source=img_bgr,
+                        imgsz=self.imgsz,
+                        conf=0.25,
+                        device="cpu",
+                        save=False,
+                        verbose=False,
+                        stream=False
+                    )
+                t_infer = time.time() - t_infer_0
+                logger.info(f"[SCAN] YOLO inference completed in {t_infer:.3f}s (imgsz={self.imgsz}, device=cpu)")
+
                 if results and len(results[0].boxes) > 0:
                     best_box = max(results[0].boxes, key=lambda b: float(b.conf[0]))
                     raw_label = self.yolo.names[int(best_box.cls[0])]
@@ -237,19 +374,28 @@ class WasteClassifier:
                     stream_name, friendly_name = self._map_coco_label(raw_label)
                     stream_info = WASTE_STREAMS.get(stream_name, WASTE_STREAMS["General / Non-Recyclable"])
 
-                    # Draw colour-coded bounding box
-                    img = cv2.imread(image_path)
-                    if img is not None:
-                        x1, y1, x2, y2 = map(int, best_box.xyxy[0])
-                        color = stream_info["color"]
-                        cv2.rectangle(img, (x1, y1), (x2, y2), color, 3)
+                    # Draw colour-coded bounding box directly on img_bgr
+                    x1, y1, x2, y2 = map(int, best_box.xyxy[0])
+                    color = stream_info["color"]
+                    cv2.rectangle(img_bgr, (x1, y1), (x2, y2), color, 3)
 
-                        tag = f"{friendly_name} | {stream_name}"
-                        (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.65, 2)
-                        cv2.rectangle(img, (x1, max(0, y1 - th - 12)), (x1 + tw + 8, max(th + 12, y1)), color, -1)
-                        cv2.putText(img, tag, (x1 + 4, max(th + 6, y1 - 6)),
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
-                        cv2.imwrite(image_path, img)
+                    tag = f"{friendly_name} | {stream_name}"
+                    (tw, th), _ = cv2.getTextSize(tag, cv2.FONT_HERSHEY_SIMPLEX, 0.65, 2)
+                    cv2.rectangle(img_bgr, (x1, max(0, y1 - th - 12)), (x1 + tw + 8, max(th + 12, y1)), color, -1)
+                    cv2.putText(img_bgr, tag, (x1 + 4, max(th + 6, y1 - 6)),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.65, (255, 255, 255), 2)
+
+                    # Save annotated image once
+                    cv2.imwrite(image_path, img_bgr)
+                    logger.info(f"[SCAN] YOLO identified '{raw_label}' -> '{friendly_name}' ({confidence:.1f}%) | Annotation written")
+
+                    # Release result tensors
+                    del results
+                    gc.collect()
+
+                    t_total = time.time() - t0
+                    mem_end = get_process_memory_mb()
+                    logger.info(f"[SCAN] Pipeline complete in {t_total:.3f}s | Final RAM: {mem_end} MB (delta: {round(mem_end - mem_start, 2)} MB)")
 
                     return {
                         "stream_category": stream_name,
@@ -259,10 +405,17 @@ class WasteClassifier:
                         "tip": stream_info["tip"],
                         "icon": stream_info["icon"],
                     }
-            except Exception:
-                pass
 
-        # Check hint if provided
+                # If no boxes detected, release results
+                del results
+                gc.collect()
+
+            except Exception as e:
+                logger.error(f"[SCAN] YOLO execution error: {e}")
+            finally:
+                self._inference_lock.release()
+
+        # 3. Check hint if provided
         if hint:
             hint_lower = hint.lower()
             for keyword, info in self.KNOWN_ITEMS.items():
@@ -272,6 +425,8 @@ class WasteClassifier:
                         "Hazardous / E-Waste" if cat == "Hazardous / E-Waste" else "Dry Recyclable"
                     )
                     stream_info = WASTE_STREAMS.get(stream_name, WASTE_STREAMS["Dry Recyclable"])
+                    t_total = time.time() - t0
+                    logger.info(f"[SCAN] Hint match '{keyword}' -> '{item_name}' in {t_total:.3f}s")
                     return {
                         "stream_category": stream_name,
                         "detected_item": item_name,
@@ -281,8 +436,8 @@ class WasteClassifier:
                         "icon": stream_info["icon"],
                     }
 
-        # Fallback to OpenCV heuristics
-        features = self.analyze_image_features(image_path)
+        # 4. Fallback to OpenCV feature heuristics (reusing in-memory img_bgr)
+        features = self.analyze_image_features(image_path, img_bgr=img_bgr)
         if features and (features['edge_density'] > 0.12 or (features['val'] < 90 and features['sat'] < 70)):
             stream_name = "Hazardous / E-Waste"
             friendly_name = "Electronic Device / Battery"
@@ -297,6 +452,14 @@ class WasteClassifier:
             confidence = 89.0
 
         stream_info = WASTE_STREAMS.get(stream_name, WASTE_STREAMS["Dry Recyclable"])
+        t_total = time.time() - t0
+        mem_end = get_process_memory_mb()
+        logger.info(f"[SCAN] OpenCV classification '{friendly_name}' in {t_total:.3f}s | Final RAM: {mem_end} MB")
+
+        # Explicit cleanup of decoded array
+        del img_bgr
+        gc.collect()
+
         return {
             "stream_category": stream_name,
             "detected_item": friendly_name,
@@ -323,9 +486,15 @@ class WasteClassifier:
 
         if matched_item:
             item_name, category, confidence = matched_item
+            # Even for keyword matches, pre-validate the image if it exists
+            if image_path and os.path.exists(image_path):
+                try:
+                    validate_and_preprocess_image(image_path, max_dim=self.max_dimension)
+                except Exception as e:
+                    logger.warning(f"[SCAN] Warning validating sample image: {e}")
         else:
             # Run YOLOv8 or OpenCV feature analysis
-            analysis = self.analyze(image_path)
+            analysis = self.analyze(image_path, hint=user_hint)
             item_name = analysis['detected_item']
             stream_category = analysis['stream_category']
             confidence = analysis['confidence']
@@ -363,6 +532,6 @@ class WasteClassifier:
         }
 
 
-# Global singleton instances
+# Global singleton instances (one instance shared across threads per worker)
 classifier = WasteClassifier()
 classifier_service = classifier

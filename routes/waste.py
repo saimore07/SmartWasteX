@@ -6,7 +6,10 @@ from werkzeug.utils import secure_filename
 from routes.auth import login_required, role_required
 from models import db
 from models.models import User, WasteScan, GreenCreditTransaction, Bin
-from services.classifier import classifier
+import logging
+from services.classifier import classifier, InferenceBusyError
+
+logger = logging.getLogger("SmartWasteX.WasteRoute")
 
 waste_bp = Blueprint('waste', __name__)
 
@@ -29,6 +32,7 @@ def scan():
 
         filename = None
         filepath = None
+        is_temp_upload = False
 
         # Check if user selected one of the rapid demo samples
         if sample_item:
@@ -53,9 +57,9 @@ def scan():
         elif uploaded_file and uploaded_file.filename:
             if not allowed_file(uploaded_file.filename):
                 flash('Unsupported image format. Allowed formats: PNG, JPG, JPEG, WEBP.', 'danger')
-                return render_template('user/scan.html')
+                return render_template('user/scan.html'), 400
 
-            sec_name = secure_filename(uploaded_file.filename)
+            sec_name = secure_filename(uploaded_file.filename) or "image.jpg"
             unique_name = f"upload_{int(datetime.now().timestamp())}_{sec_name}"
             dest_path = os.path.join(upload_folder, unique_name)
             uploaded_file.save(dest_path)
@@ -63,14 +67,43 @@ def scan():
             filename = unique_name
             filepath = dest_path
             original_label = uploaded_file.filename
+            is_temp_upload = True
         else:
             flash('Please select an image file to upload or choose one of the demo samples.', 'warning')
-            return render_template('user/scan.html')
+            return render_template('user/scan.html'), 400
 
-        # Run AI Classification
-        result = classifier.classify(filepath, original_filename=original_label, user_hint=user_hint)
+        # Run AI Classification with error handling and resource cleanup
+        try:
+            result = classifier.classify(filepath, original_filename=original_label, user_hint=user_hint)
+        except InferenceBusyError as e:
+            logger.warning(f"[SCAN] Inference service busy for user {user_id}: {e}")
+            if is_temp_upload and filepath and os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception:
+                    pass
+            flash('The scanning service is currently busy. Please try again.', 'warning')
+            return render_template('user/scan.html'), 503
+        except (ValueError, OSError) as e:
+            logger.warning(f"[SCAN] Image validation/processing error: {e}")
+            if is_temp_upload and filepath and os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception:
+                    pass
+            flash('Unable to process this image. Please try another image.', 'danger')
+            return render_template('user/scan.html'), 400
+        except Exception as e:
+            logger.error(f"[SCAN] Unexpected classification failure: {e}", exc_info=True)
+            if is_temp_upload and filepath and os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception:
+                    pass
+            flash('An unexpected error occurred during image scanning. Please try again.', 'danger')
+            return render_template('user/scan.html'), 500
 
-        # Store in database
+        # Store in database only if scan succeeded
         scan_record = WasteScan(
             user_id=user_id,
             image_filename=filename,

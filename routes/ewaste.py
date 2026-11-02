@@ -25,7 +25,7 @@ from routes.auth import login_required, role_required
 from models import db
 from models.models import User, EWasteAsset, EWasteLifecycle, GreenCreditTransaction
 from services.qr_service import qr_service
-from services.classifier import classifier_service
+from services.classifier import classifier_service, InferenceBusyError
 
 ewaste_bp = Blueprint('ewaste', __name__)
 
@@ -183,20 +183,46 @@ def scan():
         elif uploaded_file and uploaded_file.filename:
             if not _allowed_file(uploaded_file.filename):
                 flash("Unsupported image format. Please upload PNG, JPG, or WEBP.", "danger")
-                return render_template('ewaste/scan.html')
-            sec_name = secure_filename(uploaded_file.filename)
+                return render_template('ewaste/scan.html'), 400
+            sec_name = secure_filename(uploaded_file.filename) or "scan.jpg"
             unique_name = f"scan_{uuid.uuid4().hex[:8]}_{sec_name}"
             dest_path = os.path.join(upload_folder, unique_name)
             uploaded_file.save(dest_path)
             filepath = dest_path
             rel_filename = unique_name
+            is_temp_upload = True
         else:
             flash("Please upload an image file or click one of the demo samples.", "warning")
-            return render_template('ewaste/scan.html')
+            return render_template('ewaste/scan.html'), 400
 
-        # Run YOLOv8 / CV analysis
-        result = classifier_service.analyze(filepath, hint=sample_item)
-        image_url = url_for('static', filename=f"uploads/{rel_filename}")
+        # Run YOLOv8 / CV analysis with error handling & resource cleanup
+        try:
+            result = classifier_service.analyze(filepath, hint=sample_item)
+            image_url = url_for('static', filename=f"uploads/{rel_filename}")
+        except InferenceBusyError as e:
+            if is_temp_upload and filepath and os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception:
+                    pass
+            flash("The scanning service is currently busy. Please try again.", "warning")
+            return render_template('ewaste/scan.html'), 503
+        except (ValueError, OSError) as e:
+            if is_temp_upload and filepath and os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception:
+                    pass
+            flash("Unable to process this image. Please try another image.", "danger")
+            return render_template('ewaste/scan.html'), 400
+        except Exception as e:
+            if is_temp_upload and filepath and os.path.exists(filepath):
+                try:
+                    os.remove(filepath)
+                except Exception:
+                    pass
+            flash("An unexpected error occurred during image scanning. Please try again.", "danger")
+            return render_template('ewaste/scan.html'), 500
 
     return render_template('ewaste/scan.html', result=result, image_url=image_url)
 

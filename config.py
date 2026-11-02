@@ -17,8 +17,14 @@ class Config:
     # Upload and static assets
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', os.path.join(str(basedir), 'static', 'uploads'))
     QR_FOLDER = os.environ.get('QR_FOLDER', os.path.join(str(basedir), 'static', 'qr_codes'))
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max upload
+    MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 5 * 1024 * 1024))  # 5 MB max upload for 512MB RAM stability
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'bmp'}
+    MAX_IMAGE_DIMENSION = int(os.environ.get('MAX_IMAGE_DIMENSION', 1280))  # Max width/height in px before preprocessing
     
+    # AI Scanning & Concurrency Limits
+    YOLO_IMGSZ = int(os.environ.get('YOLO_IMGSZ', 416))  # 416x416 inference image size
+    INFERENCE_LOCK_TIMEOUT = float(os.environ.get('INFERENCE_LOCK_TIMEOUT', 15.0))  # Max lock wait time in seconds
+
     # IoT Hardware Gateway Security
     IOT_API_KEY = os.environ.get('IOT_API_KEY', 'smartwastex-iot-device-key-2026')
+

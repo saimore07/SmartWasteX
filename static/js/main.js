@@ -30,17 +30,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const previewContainer = document.getElementById('imagePreviewContainer');
     const previewImg = document.getElementById('imagePreview');
     const dropzone = document.getElementById('uploadDropzone');
+    const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB
 
-    if (fileInput && previewImg) {
+    function validateAndPreviewFile(file) {
+        if (!file) return;
+        if (file.size > MAX_IMAGE_BYTES) {
+            alert("Image is too large. Please upload an image smaller than 5 MB.");
+            if (fileInput) fileInput.value = '';
+            if (previewContainer) previewContainer.classList.add('d-none');
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = function(evt) {
+            if (previewImg) previewImg.src = evt.target.result;
+            if (previewContainer) previewContainer.classList.remove('d-none');
+        };
+        reader.readAsDataURL(file);
+    }
+
+    if (fileInput) {
         fileInput.addEventListener('change', function(e) {
-            const file = this.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(evt) {
-                    previewImg.src = evt.target.result;
-                    if (previewContainer) previewContainer.classList.remove('d-none');
-                };
-                reader.readAsDataURL(file);
+            if (this.files && this.files[0]) {
+                validateAndPreviewFile(this.files[0]);
             }
         });
     }
@@ -63,13 +75,28 @@ document.addEventListener('DOMContentLoaded', () => {
         dropzone.addEventListener('drop', (e) => {
             if (e.dataTransfer.files.length) {
                 fileInput.files = e.dataTransfer.files;
-                const event = new Event('change');
-                fileInput.dispatchEvent(event);
+                validateAndPreviewFile(e.dataTransfer.files[0]);
             }
         });
     }
 
-    // 4. Sample Item Quick Selector
+    // 4. Form Submit Protection & Loading State
+    const scanForm = document.getElementById('wasteScanForm');
+    if (scanForm) {
+        scanForm.addEventListener('submit', function(e) {
+            const submitBtn = document.getElementById('scanSubmitBtn');
+            if (submitBtn) {
+                if (submitBtn.disabled) {
+                    e.preventDefault();
+                    return;
+                }
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Analyzing your waste image...';
+            }
+        });
+    }
+
+    // 5. Sample Item Quick Selector
     window.selectSample = function(sampleKey) {
         const sampleField = document.getElementById('sampleItemField');
         const previewContainer = document.getElementById('imagePreviewContainer');
@@ -86,8 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (scanForm) {
                 const submitBtn = document.getElementById('scanSubmitBtn');
                 if (submitBtn) {
-                    submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2"></span> Classifying ${sampleKey.replace('_', ' ')}...`;
                     submitBtn.disabled = true;
+                    submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span> Analyzing ${sampleKey.replace('_', ' ')}...`;
                 }
                 scanForm.submit();
             }
