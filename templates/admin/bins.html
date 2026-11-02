@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Smart Bins Telemetry & Simulator — SmartWasteX{% endblock %}
+{% block title %}IoT Smart-Bin Monitoring Dashboard — SmartWasteX{% endblock %}
 
 {% block content %}
 <div class="container py-4">
@@ -9,23 +9,28 @@
         <div>
             <div class="d-flex align-items-center gap-2 mb-1">
                 <span class="badge bg-success-subtle text-success border border-success-subtle px-3 py-1 rounded-pill fw-bold">
-                    <i class="bi bi-broadcast me-1"></i> Virtual Sensor Network
+                    <i class="bi bi-broadcast me-1"></i> Physical Sensor Network
                 </span>
-                <span class="badge bg-secondary-subtle text-secondary border">Simulated IoT Telemetry</span>
+                <span class="badge bg-primary-subtle text-primary border border-primary-subtle rounded-pill">
+                    <i class="bi bi-shield-check me-1"></i> Authenticated IoT Gateway
+                </span>
             </div>
             <h1 class="display-6 fw-bold mb-0 brand-font">Campus Smart-Bin Telemetry</h1>
             <p class="text-muted small mb-0">
-                Ultrasonic depth sensors, load-cells, and temperature probes simulated for institutional waste receptacles.
+                Real-time ultrasonic depth sensors, load-cell strain gauges, and ambient temperature probes streaming from institutional receptacles.
             </p>
         </div>
         <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-dark btn-sm" data-bs-toggle="modal" data-bs-target="#iotApiDocsModal">
+                <i class="bi bi-code-slash me-1"></i> Ingestion API Specs
+            </button>
             <a href="{{ url_for('bins.admin_collections') }}" class="btn btn-outline-primary btn-sm">
                 <i class="bi bi-truck me-1"></i> Collection Dispatch Queue
             </a>
         </div>
     </div>
 
-    <!-- Live Dynamic Alert Container for Simulator -->
+    <!-- Live Dynamic Alert Container -->
     <div id="liveAlertContainer">
         {% if overflow_bins %}
             {% for ob in overflow_bins %}
@@ -43,7 +48,7 @@
         {% endif %}
     </div>
 
-    <!-- Bins Grid (4 Virtual Bins) -->
+    <!-- Bins Grid -->
     <div class="row g-4">
         {% for b in bins %}
             <div class="col-lg-6">
@@ -54,8 +59,8 @@
                             <span class="fs-5 fw-bold text-dark">{{ b.id }}</span>
                             <span class="text-muted">• {{ b.name }}</span>
                         </div>
-                        <span id="status-badge-{{ b.id }}" class="badge {% if b.status == 'OVERFLOW' %}badge-eco-overflow{% elif b.status == 'HIGH' %}badge-eco-high{% elif b.status == 'WARNING' %}badge-eco-warning{% else %}badge-eco-normal{% endif %} px-3 py-2 fs-6">
-                            {{ b.status }}
+                        <span id="status-badge-{{ b.id }}" class="badge {% if not b.has_sensor_data %}bg-secondary-subtle text-secondary border{% elif b.status == 'OVERFLOW' %}badge-eco-overflow{% elif b.status == 'HIGH' %}badge-eco-high{% elif b.status == 'WARNING' %}badge-eco-warning{% else %}badge-eco-normal{% endif %} px-3 py-2 fs-6">
+                            {% if b.has_sensor_data %}{{ b.status }}{% else %}Awaiting sensor data{% endif %}
                         </span>
                     </div>
 
@@ -76,117 +81,206 @@
                             </div>
                         </div>
 
-                        <!-- Fill Level Large Display -->
+                        <!-- Fill Level Display -->
                         <div class="mb-4">
                             <div class="d-flex justify-content-between align-items-end mb-1">
                                 <span class="text-uppercase small fw-bold text-muted">Fill Capacity</span>
-                                <span class="fs-3 fw-bold text-dark" id="fill-text-{{ b.id }}">{{ b.fill_percentage }}%</span>
+                                <span class="fs-3 fw-bold text-dark" id="fill-text-{{ b.id }}">
+                                    {% if b.has_sensor_data %}
+                                        {{ b.fill_percentage }}%
+                                    {% else %}
+                                        <span class="text-muted fs-6 fst-italic">Awaiting sensor data</span>
+                                    {% endif %}
+                                </span>
                             </div>
                             <div class="progress" style="height: 14px; border-radius: 8px;">
-                                <div id="fill-bar-{{ b.id }}" class="progress-bar {% if b.fill_percentage >= 100 %}bg-danger progress-bar-striped progress-bar-animated{% elif b.fill_percentage >= 85 %}bg-danger{% elif b.fill_percentage >= 70 %}bg-warning{% else %}bg-success{% endif %}" role="progressbar" style="width: {{ [b.fill_percentage, 100]|min }}%;" aria-valuenow="{{ b.fill_percentage }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                <div id="fill-bar-{{ b.id }}" class="progress-bar {% if not b.has_sensor_data %}bg-secondary{% elif b.fill_percentage >= 100 %}bg-danger progress-bar-striped progress-bar-animated{% elif b.fill_percentage >= 85 %}bg-danger{% elif b.fill_percentage >= 70 %}bg-warning{% else %}bg-success{% endif %}" role="progressbar" style="width: {{ [b.fill_percentage, 100]|min if b.has_sensor_data else 0 }}%;" aria-valuenow="{{ b.fill_percentage if b.has_sensor_data else 0 }}" aria-valuemin="0" aria-valuemax="100"></div>
                             </div>
                         </div>
 
                         <!-- Telemetry Sensors Matrix -->
-                        <div class="row g-2 mb-4 text-center">
+                        <div class="row g-2 mb-3 text-center">
                             <div class="col-4">
-                                <div class="p-2 bg-light rounded-2 border">
+                                <div class="p-2 bg-light rounded-2 border h-100">
                                     <span class="text-muted small d-block">Weight</span>
-                                    <strong class="fs-6 text-dark" id="weight-{{ b.id }}">{{ b.weight_kg }} kg</strong>
+                                    <strong class="fs-6 text-dark" id="weight-{{ b.id }}">
+                                        {% if b.has_sensor_data %}{{ b.weight_kg }} kg{% else %}<span class="text-muted small">Awaiting data</span>{% endif %}
+                                    </strong>
                                 </div>
                             </div>
                             <div class="col-4">
-                                <div class="p-2 bg-light rounded-2 border">
+                                <div class="p-2 bg-light rounded-2 border h-100">
                                     <span class="text-muted small d-block">Temperature</span>
-                                    <strong class="fs-6 text-dark" id="temp-{{ b.id }}">{{ b.temperature_c }} °C</strong>
+                                    <strong class="fs-6 text-dark" id="temp-{{ b.id }}">
+                                        {% if b.has_sensor_data %}{{ b.temperature_c }} °C{% else %}<span class="text-muted small">Awaiting data</span>{% endif %}
+                                    </strong>
                                 </div>
                             </div>
                             <div class="col-4">
-                                <div class="p-2 bg-light rounded-2 border">
-                                    <span class="text-muted small d-block">Node Battery</span>
-                                    <strong class="fs-6 text-dark" id="battery-{{ b.id }}">{{ b.battery_level }}%</strong>
+                                <div class="p-2 bg-light rounded-2 border h-100">
+                                    <span class="text-muted small d-block">Battery</span>
+                                    <strong class="fs-6 text-dark" id="battery-{{ b.id }}">
+                                        {% if b.has_sensor_data %}{{ b.battery_level }}%{% else %}<span class="text-muted small">Awaiting data</span>{% endif %}
+                                    </strong>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Predictive Collection Calculation Box -->
-                        <div class="alert alert-secondary bg-light border p-3 mb-4">
-                            <div class="d-flex align-items-center gap-2">
-                                <i class="bi bi-clock-history text-primary fs-5"></i>
+                        <!-- Collection Request Status Box -->
+                        <div class="p-3 bg-light rounded-3 border mb-3">
+                            <div class="d-flex justify-content-between align-items-center">
                                 <div>
-                                    <div class="fw-bold small text-dark">Predictive Collection Estimation</div>
-                                    <div class="small text-muted" id="estimate-{{ b.id }}">
-                                        {% if b.fill_percentage >= 100 %}
-                                            <span class="text-danger fw-bold">Collection urgently required now!</span>
-                                        {% elif b.estimate_hours_to_full() > 0 %}
-                                            Collection recommended within approximately <strong>{{ b.estimate_hours_to_full() }} hours</strong>.
+                                    <span class="small fw-bold text-uppercase text-muted d-block">
+                                        <i class="bi bi-ticket-detailed text-primary me-1"></i> Collection Request Status
+                                    </span>
+                                    <span id="col-status-{{ b.id }}">
+                                        {% set active_req = b.active_collection_request %}
+                                        {% if active_req %}
+                                            <span class="badge {% if active_req.priority == 'URGENT' %}bg-danger{% else %}bg-warning text-dark{% endif %} me-1">
+                                                {{ active_req.priority }}
+                                            </span>
+                                            <strong class="text-dark small">{{ active_req.status }}</strong>
+                                            <span class="text-muted small">({{ active_req.request_code }})</span>
                                         {% else %}
-                                            Collection recommended immediately.
+                                            <span class="text-success small">
+                                                <i class="bi bi-check-circle-fill me-1"></i> No active collection ticket needed
+                                            </span>
+                                        {% endif %}
+                                    </span>
+                                </div>
+                                {% if b.active_collection_request %}
+                                    <a href="{{ url_for('bins.admin_collections') }}" class="btn btn-outline-primary btn-sm py-1 px-2">
+                                        View Ticket
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Historical Readings Table (Recent Telemetry) -->
+                        <div class="accordion accordion-flush mb-2 border rounded-2" id="accordionReadings-{{ b.id }}">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header" id="heading-{{ b.id }}">
+                                    <button class="accordion-button collapsed py-2 px-3 small fw-bold text-muted bg-light" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ b.id }}" aria-expanded="false" aria-controls="collapse-{{ b.id }}">
+                                        <i class="bi bi-clock-history text-secondary me-2"></i> Recent Telemetry Readings (Historical Log)
+                                    </button>
+                                </h2>
+                                <div id="collapse-{{ b.id }}" class="accordion-collapse collapse" aria-labelledby="heading-{{ b.id }}">
+                                    <div class="accordion-body p-0">
+                                        {% set recent_list = b.recent_readings(3) %}
+                                        {% if recent_list %}
+                                            <div class="table-responsive">
+                                                <table class="table table-sm table-striped align-middle mb-0" style="font-size: 0.75rem;">
+                                                    <thead class="table-light text-muted">
+                                                        <tr>
+                                                            <th class="ps-3">Timestamp</th>
+                                                            <th>Fill %</th>
+                                                            <th>Weight</th>
+                                                            <th>Temp</th>
+                                                            <th class="pe-3">Battery</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {% for r in recent_list %}
+                                                            <tr>
+                                                                <td class="ps-3 text-muted">{{ r.timestamp.strftime('%H:%M:%S') if r.timestamp else 'N/A' }}</td>
+                                                                <td><strong>{{ r.fill_percentage }}%</strong></td>
+                                                                <td>{{ r.weight_kg }} kg</td>
+                                                                <td>{{ r.temperature_c }} °C</td>
+                                                                <td class="pe-3">{{ r.battery_level }}%</td>
+                                                            </tr>
+                                                        {% endfor %}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        {% else %}
+                                            <div class="p-3 text-muted text-center small fst-italic">
+                                                Awaiting sensor data
+                                            </div>
                                         {% endif %}
                                     </div>
-                                    <div class="text-muted" style="font-size: 0.7rem;">* Estimated using recent simulated telemetry.</div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Interactive Simulator Controls -->
-                        <div class="p-3 bg-light rounded-3 border">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="small fw-bold text-uppercase text-muted">
-                                    <i class="bi bi-sliders text-success me-1"></i> Hardware Sensor Controls
-                                </span>
-                                <span class="badge bg-white text-muted border small">Live DB Write</span>
-                            </div>
-                            
-                            <!-- Simulation Action Buttons -->
-                            <div class="d-flex flex-wrap gap-2">
-                                <button type="button" class="btn btn-outline-success btn-sm flex-grow-1" onclick="simulateBin('{{ b.id }}', 'plus_10', this)">
-                                    +10% Fill
-                                </button>
-                                <button type="button" class="btn btn-outline-secondary btn-sm flex-grow-1" onclick="simulateBin('{{ b.id }}', 'minus_10', this)">
-                                    -10% Fill
-                                </button>
-                                <button type="button" class="btn btn-outline-primary btn-sm flex-grow-1" onclick="simulateBin('{{ b.id }}', 'random', this)">
-                                    Random Reading
-                                </button>
-                                <button type="button" class="btn btn-outline-danger btn-sm flex-grow-1" onclick="simulateBin('{{ b.id }}', 'empty', this)">
-                                    Empty Bin
-                                </button>
-                                <button type="button" class="btn btn-danger btn-sm" onclick="simulateBin('{{ b.id }}', 'set_fill', this, 100)" title="Push to 100% to test urgent overflow trigger!">
-                                    Push to 100%
-                                </button>
-                            </div>
+                        <!-- Hardware Sensor Endpoint Info -->
+                        <div class="d-flex justify-content-between align-items-center text-muted mt-3" style="font-size: 0.75rem;">
+                            <span><i class="bi bi-cpu text-secondary me-1"></i> Gateway Node: <code>{{ b.id }}</code></span>
+                            <span>Endpoint: <code>POST /api/iot/bin-update</code></span>
                         </div>
                     </div>
 
                     <div class="card-footer bg-white border-top py-2 px-4 text-muted small d-flex justify-content-between align-items-center">
-                        <span>Rate: ~{{ b.estimated_fill_rate }}% / hr</span>
-                        <span>Updated: {{ b.last_updated.strftime('%H:%M:%S') if b.last_updated else 'Just now' }}</span>
+                        <span id="estimate-{{ b.id }}">
+                            {% if not b.has_sensor_data %}
+                                <span class="fst-italic">Awaiting sensor data</span>
+                            {% elif b.fill_percentage >= 100 %}
+                                <span class="text-danger fw-bold">Collection urgently required now!</span>
+                            {% elif b.estimate_hours_to_full() > 0 %}
+                                Service interval: ~<strong>{{ b.estimate_hours_to_full() }} hrs</strong>
+                            {% else %}
+                                Collection recommended
+                            {% endif %}
+                        </span>
+                        <span id="updated-{{ b.id }}">
+                            Last Update: <strong>{% if b.has_sensor_data and b.last_updated %}{{ b.last_updated.strftime('%H:%M:%S UTC') }}{% else %}Awaiting sensor data{% endif %}</strong>
+                        </span>
                     </div>
                 </div>
             </div>
         {% endfor %}
     </div>
 </div>
+
+<!-- Modal: Hardware Ingestion API Specs -->
+<div class="modal fade" id="iotApiDocsModal" tabindex="-1" aria-labelledby="iotApiDocsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+        <div class="modal-content shadow border-0">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title fw-bold" id="iotApiDocsModalLabel">
+                    <i class="bi bi-broadcast me-2 text-success"></i> SmartWasteX IoT Ingestion Gateway Specification
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <p class="text-muted small">
+                    Physical IoT microcontrollers (ESP32, Raspberry Pi, Arduino, LoRaWAN gateways) stream real-world sensor telemetry into the SmartWasteX platform via authenticated HTTP/HTTPS JSON POST requests.
+                </p>
+
+                <h6 class="fw-bold text-dark mb-2">Endpoint Details</h6>
+                <div class="bg-light p-3 rounded-2 border mb-3">
+                    <div class="row g-2 small">
+                        <div class="col-sm-3 fw-bold text-muted">Method & URL:</div>
+                        <div class="col-sm-9"><span class="badge bg-success me-2">POST</span><code>/api/iot/bin-update</code> (or <code>/api/iot/telemetry</code>)</div>
+                        <div class="col-sm-3 fw-bold text-muted">Authentication:</div>
+                        <div class="col-sm-9">Header <code>X-API-Key: {{ iot_api_key }}</code> or Bearer Token</div>
+                        <div class="col-sm-3 fw-bold text-muted">Content-Type:</div>
+                        <div class="col-sm-9"><code>application/json</code></div>
+                    </div>
+                </div>
+
+                <h6 class="fw-bold text-dark mb-2">JSON Telemetry Payload Schema</h6>
+                <pre class="bg-dark text-light p-3 rounded-2 small mb-3"><code>{
+  "bin_id": "BIN-01",
+  "fill_percentage": 85.0,
+  "weight": 12.5,
+  "temperature": 29.4,
+  "battery_level": 90.0
+}</code></pre>
+
+                <h6 class="fw-bold text-dark mb-2">Example cURL Transmission</h6>
+                <pre class="bg-dark text-success p-3 rounded-2 small mb-0"><code>curl -X POST http://127.0.0.1:5000/api/iot/bin-update \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: {{ iot_api_key }}" \
+  -d '{"bin_id": "BIN-01", "fill_percentage": 85.0, "weight": 12.5, "temperature": 29.4, "battery_level": 90.0}'</code></pre>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script src="{{ url_for('static', filename='js/bins.js') }}"></script>
-<script>
-    // Helper to push to 100% directly
-    const origSimulate = window.simulateBin;
-    window.simulateBin = function(binId, action, buttonEl, extraVal) {
-        if (action === 'set_fill') {
-            fetch(`/api/bins/${binId}/simulate`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ action: 'set_fill', fill: 100.0 })
-            }).then(r => r.json()).then(data => {
-                if (data.success) location.reload();
-            });
-            return;
-        }
-        origSimulate(binId, action, buttonEl);
-    };
-</script>
 {% endblock %}

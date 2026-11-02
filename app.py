@@ -142,6 +142,7 @@ def init_and_seed_db(app):
     db.session.commit()
 
     # 4. Seed Smart Bins
+    # 4. Seed Institutional Smart Bins Registry
     bins_data = [
         {
             'id': 'BIN-01',
@@ -149,12 +150,7 @@ def init_and_seed_db(app):
             'waste_type': 'Dry Recyclable',
             'location': 'Main Building',
             'latitude': 12.9716,
-            'longitude': 77.5946,
-            'fill': 42.0,
-            'weight': 8.4,
-            'temp': 28.0,
-            'battery': 92.0,
-            'status': 'NORMAL'
+            'longitude': 77.5946
         },
         {
             'id': 'BIN-02',
@@ -162,12 +158,7 @@ def init_and_seed_db(app):
             'waste_type': 'Biodegradable',
             'location': 'Cafeteria',
             'latitude': 12.9722,
-            'longitude': 77.5955,
-            'fill': 61.0,
-            'weight': 17.1,
-            'temp': 29.5,
-            'battery': 88.0,
-            'status': 'NORMAL'
+            'longitude': 77.5955
         },
         {
             'id': 'BIN-03',
@@ -175,12 +166,7 @@ def init_and_seed_db(app):
             'waste_type': 'Dry Recyclable',
             'location': 'Library',
             'latitude': 12.9710,
-            'longitude': 77.5938,
-            'fill': 78.0,
-            'weight': 15.6,
-            'temp': 27.2,
-            'battery': 95.0,
-            'status': 'WARNING'
+            'longitude': 77.5938
         },
         {
             'id': 'BIN-04',
@@ -188,12 +174,7 @@ def init_and_seed_db(app):
             'waste_type': 'Hazardous / E-Waste',
             'location': 'Engineering Block',
             'latitude': 12.9730,
-            'longitude': 77.5962,
-            'fill': 94.0,
-            'weight': 18.4,
-            'temp': 31.0,
-            'battery': 74.0,
-            'status': 'HIGH'
+            'longitude': 77.5962
         }
     ]
 
@@ -207,24 +188,14 @@ def init_and_seed_db(app):
                 location=b['location'],
                 latitude=b['latitude'],
                 longitude=b['longitude'],
-                fill_percentage=b['fill'],
-                weight_kg=b['weight'],
-                temperature_c=b['temp'],
-                battery_level=b['battery'],
-                status=b['status'],
-                last_updated=datetime.now(timezone.utc)
+                fill_percentage=0.0,
+                weight_kg=0.0,
+                temperature_c=0.0,
+                battery_level=0.0,
+                status='NORMAL',
+                last_updated=None
             )
             db.session.add(new_bin)
-            # Add initial telemetry reading
-            reading = BinReading(
-                bin_id=b['id'],
-                fill_percentage=b['fill'],
-                weight_kg=b['weight'],
-                temperature_c=b['temp'],
-                battery_level=b['battery'],
-                timestamp=datetime.now(timezone.utc)
-            )
-            db.session.add(reading)
 
     # 5. Seed Initial E-Waste Assets
     ewaste_assets = [

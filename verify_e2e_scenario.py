@@ -122,22 +122,23 @@ def run_end_to_end_test():
         assert b"BIN-04" in res12.data
         print("  ✓ Smart Bins view loaded.")
 
-        # STEP 13 & 14 & 15: Select BIN-04, simulate +10%, verify capacity changes
-        print("\n[STEP 13, 14, 15] Simulating +10% on BIN-04 and verifying capacity changes...")
+        # STEP 13 & 14 & 15: Stream IoT telemetry on BIN-04 (+10%), verify capacity changes
+        print("\n[STEP 13, 14, 15] Sending IoT telemetry update to BIN-04 and verifying capacity changes...")
         bin4_before = db.session.get(Bin, 'BIN-04')
         fill_before = bin4_before.fill_percentage
-        res14 = client.post('/api/bins/BIN-04/simulate', json={'action': 'plus_10'})
+        target_fill = min(100.0, fill_before + 10.0)
+        res14 = client.post('/api/iot/bin-update', json={'bin_id': 'BIN-04', 'fill_percentage': target_fill})
         assert res14.status_code == 200
         bin4_after = db.session.get(Bin, 'BIN-04')
-        assert bin4_after.fill_percentage == fill_before + 10.0
+        assert bin4_after.fill_percentage == target_fill
         print(f"  ✓ BIN-04 fill changed from {fill_before}% to {bin4_after.fill_percentage}%")
 
-        # STEP 16 & 17 & 18: Push bin to 100%, verify overflow alert and collection request
-        print("\n[STEP 16, 17, 18] Pushing BIN-04 to 100% capacity, checking overflow alert & collection request...")
-        res16 = client.post('/api/bins/BIN-04/simulate', json={'action': 'set_fill', 'fill': 100.0})
+        # STEP 16 & 17 & 18: Stream 100% capacity sensor reading, verify overflow alert and collection request
+        print("\n[STEP 16, 17, 18] Ingesting 100% capacity sensor reading for BIN-04, checking overflow alert & collection request...")
+        res16 = client.post('/api/iot/bin-update', json={'bin_id': 'BIN-04', 'fill_percentage': 100.0})
         assert res16.status_code == 200
         data16 = res16.get_json()
-        assert data16['bin']['status'] == 'OVERFLOW'
+        assert data16['status'] == 'OVERFLOW'
         assert data16['alert']['priority'] == 'URGENT'
 
         urgent_req = CollectionRequest.query.filter_by(bin_id='BIN-04', priority='URGENT').first()

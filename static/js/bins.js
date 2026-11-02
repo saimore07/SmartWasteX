@@ -1,43 +1,12 @@
 /**
- * SmartWasteX Smart Bin Telemetry Simulation Scripts
+ * SmartWasteX Smart Bin Real-Time Telemetry Client
+ * ==================================================
+ * Periodically polls the REST API for physical sensor updates and
+ * renders live capacity changes, sensor diagnostics, and overflow alerts.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
-    window.simulateBin = async function(binId, action, buttonEl) {
-        if (!buttonEl) return;
-        const originalHtml = buttonEl.innerHTML;
-        buttonEl.disabled = true;
-        buttonEl.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span>`;
-
-        try {
-            const response = await fetch(`/api/bins/${binId}/simulate`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({ action: action })
-            });
-
-            const data = await response.json();
-            if (data.success && data.bin) {
-                updateBinCardUI(binId, data.bin, data.alert);
-            } else {
-                alert(data.error || 'Failed to update telemetry');
-            }
-        } catch (err) {
-            console.error('Simulation error:', err);
-            // Fallback to submitting parent form if available
-            const form = buttonEl.closest('form');
-            if (form) form.submit();
-        } finally {
-            buttonEl.disabled = false;
-            buttonEl.innerHTML = originalHtml;
-        }
-    };
-
     function updateBinCardUI(binId, bin, alertInfo) {
-        // Update Fill Level Badge & Text
         const fillText = document.getElementById(`fill-text-${binId}`);
         const fillBar = document.getElementById(`fill-bar-${binId}`);
         const statusBadge = document.getElementById(`status-badge-${binId}`);
@@ -45,16 +14,41 @@ document.addEventListener('DOMContentLoaded', () => {
         const tempText = document.getElementById(`temp-${binId}`);
         const battText = document.getElementById(`battery-${binId}`);
         const estText = document.getElementById(`estimate-${binId}`);
-        const cardEl = document.getElementById(`bin-card-${binId}`);
+        const updatedText = document.getElementById(`updated-${binId}`);
 
+        if (!bin.has_sensor_data) {
+            if (fillText) fillText.innerHTML = '<span class="text-muted fs-6 fst-italic">Awaiting sensor data</span>';
+            if (weightText) weightText.innerHTML = '<span class="text-muted small">Awaiting data</span>';
+            if (tempText) tempText.innerHTML = '<span class="text-muted small">Awaiting data</span>';
+            if (battText) battText.innerHTML = '<span class="text-muted small">Awaiting data</span>';
+            if (estText) estText.innerHTML = '<span class="fst-italic">Awaiting sensor data</span>';
+            if (updatedText) updatedText.innerHTML = 'Last Update: <strong>Awaiting sensor data</strong>';
+            if (statusBadge) {
+                statusBadge.className = 'badge bg-secondary-subtle text-secondary border px-3 py-2 fs-6';
+                statusBadge.textContent = 'Awaiting sensor data';
+            }
+            if (fillBar) {
+                fillBar.style.width = '0%';
+                fillBar.className = 'progress-bar bg-secondary';
+            }
+            return;
+        }
+
+        // Update Fill Level Badge & Text
         if (fillText) fillText.textContent = `${bin.fill_percentage}%`;
         if (weightText) weightText.textContent = `${bin.weight_kg} kg`;
         if (tempText) tempText.textContent = `${bin.temperature_c} °C`;
         if (battText) battText.textContent = `${bin.battery_level}%`;
+        if (updatedText) updatedText.innerHTML = `Last Update: <strong>${bin.last_updated}</strong>`;
+
         if (estText) {
-            estText.textContent = bin.hours_to_full > 0 
-                ? `Collection recommended in ~${bin.hours_to_full} hrs` 
-                : 'Collection urgently required now!';
+            if (bin.fill_percentage >= 100) {
+                estText.innerHTML = '<span class="text-danger fw-bold">Collection urgently required now!</span>';
+            } else if (bin.hours_to_full && bin.hours_to_full > 0) {
+                estText.innerHTML = `Service interval: ~<strong>${bin.hours_to_full} hrs</strong>`;
+            } else {
+                estText.textContent = 'Collection recommended';
+            }
         }
 
         if (fillBar) {
@@ -72,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (statusBadge) {
-            statusBadge.className = 'badge';
+            statusBadge.className = 'badge px-3 py-2 fs-6';
             statusBadge.textContent = bin.status;
             if (bin.status === 'OVERFLOW') {
                 statusBadge.classList.add('badge-eco-overflow');
@@ -93,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 alertDiv.className = `alert alert-${alertInfo.priority === 'URGENT' ? 'danger' : 'warning'} alert-dismissible fade show shadow-sm`;
                 alertDiv.innerHTML = `
                     <div class="d-flex align-items-center">
-                        <i class="bi ${alertInfo.priority === 'URGENT' ? 'bi-exclamation-octagon-fill' : 'bi-exclamation-triangle-fill'} fs-4 me-3"></i>
+                        <i class="bi ${alertInfo.priority === 'URGENT' ? 'bi-exclamation-octagon-fill' : 'bi-exclamation-triangle-fill'} fs-4 me-3 text-danger"></i>
                         <div>
                             <strong>${alertInfo.priority === 'URGENT' ? 'CRITICAL OVERFLOW ALERT' : 'CAPACITY WARNING'}</strong>:
                             ${alertInfo.message}
@@ -107,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Lightweight live polling: Fetch /api/bins every 3 seconds so judges see simulator updates in real time
+    // Live polling: Fetch /api/bins every 5 seconds so dashboard reflects physical hardware telemetry
     setInterval(async () => {
         try {
             const res = await fetch('/api/bins');
@@ -118,7 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
         } catch (e) {
-            // Silently ignore temporary network jitter during live presentations
+            // Silently ignore temporary network disconnects
         }
-    }, 3000);
+    }, 5000);
 });

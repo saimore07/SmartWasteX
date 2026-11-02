@@ -7,7 +7,6 @@ from routes.auth import login_required, role_required
 from models import db
 from models.models import User, WasteScan, GreenCreditTransaction, Bin
 from services.classifier import classifier
-from services.iot_simulator import IoTSimulator
 
 waste_bp = Blueprint('waste', __name__)
 
@@ -146,13 +145,6 @@ def confirm_disposal(scan_id):
         created_at=datetime.now(timezone.utc)
     )
     db.session.add(transaction)
-
-    # Slightly update the target smart bin telemetry to reflect realistic intake
-    if scan_record.nearest_bin_id:
-        bin_obj = db.session.get(Bin, scan_record.nearest_bin_id)
-        if bin_obj:
-            new_fill = min(100.0, bin_obj.fill_percentage + 0.8)
-            IoTSimulator.update_bin_telemetry(bin_obj, new_fill)
 
     db.session.commit()
 

@@ -1,26 +1,61 @@
 from datetime import datetime, timezone
-from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session, current_app
 from routes.auth import login_required, role_required
 from models import db
 from models.models import Bin, CollectionRequest
-from services.iot_simulator import IoTSimulator
+from services.iot_service import IoTService
 
 bins_bp = Blueprint('bins', __name__)
+
+def check_iot_auth():
+    """
+    Validates API key authentication for IoT sensor ingestion endpoints.
+    Allows:
+    1. Authenticated admin session
+    2. Header: X-API-Key: <key>
+    3. Header: Authorization: Bearer <key> or ApiKey <key>
+    4. Query parameter: ?api_key=<key>
+    5. JSON body: {"api_key": "<key>"}
+    """
+    if session.get('role') == 'admin' or session.get('user_role') == 'admin':
+        return True
+
+    expected_key = current_app.config.get('IOT_API_KEY', 'smartwastex-iot-device-key-2026')
+
+    api_key = request.headers.get('X-API-Key')
+    if not api_key:
+        auth_hdr = request.headers.get('Authorization', '')
+        if auth_hdr.startswith('Bearer '):
+            api_key = auth_hdr[7:].strip()
+        elif auth_hdr.startswith('ApiKey '):
+            api_key = auth_hdr[7:].strip()
+    if not api_key:
+        api_key = request.args.get('api_key')
+    if not api_key and request.is_json:
+        body = request.get_json(silent=True)
+        if isinstance(body, dict):
+            api_key = body.get('api_key')
+
+    if api_key and api_key == expected_key:
+        return True
+
+    return False
 
 @bins_bp.route('/admin/bins')
 @login_required
 @role_required('admin')
 def admin_bins():
     bins_list = Bin.query.order_by(Bin.id.asc()).all()
-    # Check if any bin has an overflow or high fill
     overflow_bins = [b for b in bins_list if b.fill_percentage >= 100]
     high_bins = [b for b in bins_list if 85 <= b.fill_percentage < 100]
+    api_key = current_app.config.get('IOT_API_KEY', 'smartwastex-iot-device-key-2026')
 
     return render_template(
         'admin/bins.html',
         bins=bins_list,
         overflow_bins=overflow_bins,
-        high_bins=high_bins
+        high_bins=high_bins,
+        iot_api_key=api_key
     )
 
 @bins_bp.route('/admin/bins/<bin_id>/action', methods=['POST'])
@@ -29,26 +64,12 @@ def admin_bins():
 def bin_action(bin_id):
     action = request.form.get('action')
     bin_obj = db.get_or_404(Bin, bin_id)
-    alert_info = None
 
-    if action == 'plus_10':
-        bin_obj, alert_info = IoTSimulator.simulate_delta(bin_id, 10.0)
-        flash(f"Telemetry updated: {bin_id} fill increased by +10% to {bin_obj.fill_percentage}%", 'info')
-    elif action == 'minus_10':
-        bin_obj, alert_info = IoTSimulator.simulate_delta(bin_id, -10.0)
-        flash(f"Telemetry updated: {bin_id} fill decreased by -10% to {bin_obj.fill_percentage}%", 'info')
-    elif action == 'random':
-        bin_obj, alert_info = IoTSimulator.simulate_random(bin_id)
-        flash(f"Random telemetry generated for {bin_id}: {bin_obj.fill_percentage}% fill", 'info')
-    elif action == 'empty':
-        bin_obj, alert_info = IoTSimulator.empty_bin(bin_id)
-        flash(f"Bin {bin_id} has been emptied! Telemetry reset to 0%.", 'success')
-    elif action == 'overflow':
-        bin_obj, alert_info = IoTSimulator.simulate_delta(bin_id, 100.0 - bin_obj.fill_percentage)
-        flash(f"Bin {bin_id} pushed to 100% capacity! Overflow alert triggered.", 'danger')
-
-    if alert_info and alert_info.get('triggered'):
-        flash(alert_info['message'], 'danger' if alert_info['priority'] == 'URGENT' else 'warning')
+    if action == 'empty':
+        bin_obj, _ = IoTService.empty_bin(bin_id)
+        flash(f"Bin {bin_id} marked as emptied by facilities staff. Telemetry reset to 0%.", 'success')
+    else:
+        flash("Unsupported bin action.", 'warning')
 
     return redirect(url_for('bins.admin_bins'))
 
@@ -58,104 +79,72 @@ def api_bins():
     return jsonify([b.to_dict() for b in bins_list])
 
 @bins_bp.route('/api/iot/bin-update', methods=['POST'])
+@bins_bp.route('/api/iot/telemetry', methods=['POST'])
+@bins_bp.route('/api/iot/sensors', methods=['POST'])
 def api_iot_bin_update():
     """
-    Public IoT Gateway Endpoint for External Hardware Sensor Telemetry.
-    Receives JSON telemetry payloads from physical smart bins or simulator.
+    Authenticated IoT Gateway Endpoint for External Hardware Sensor Telemetry.
+    Ingests real physical sensor readings (fill percentage, weight, temperature, battery level).
     """
-    data = request.get_json(silent=True) or request.form
+    if not check_iot_auth():
+        return jsonify({
+            'success': False,
+            'error': 'Unauthorized: Valid X-API-Key or Authorization header required'
+        }), 401
+
+    data = request.get_json(silent=True)
+    if data is None:
+        data = request.form.to_dict() if request.form else None
+
     if not data:
         return jsonify({'success': False, 'error': 'JSON payload required'}), 400
 
-    raw_bin_id = str(data.get('bin_id', '')).strip().upper()
-    if not raw_bin_id:
-        return jsonify({'success': False, 'error': 'bin_id is required'}), 400
+    is_valid, err_msg, parsed = IoTService.validate_payload(data)
+    if not is_valid:
+        return jsonify({'success': False, 'error': err_msg}), 400
 
-    # Match bin ID directly or try zero-padded variant (BIN-1 -> BIN-01, BIN-001 -> BIN-01)
-    bin_obj = db.session.get(Bin, raw_bin_id)
-    if not bin_obj and raw_bin_id.startswith('BIN-'):
-        num_part = raw_bin_id.split('-')[-1]
-        try:
-            padded_id = f"BIN-{int(num_part):02d}"
-            bin_obj = db.session.get(Bin, padded_id)
-        except ValueError:
-            pass
-
+    raw_bin_id = parsed.get('raw_bin_id')
+    bin_obj = IoTService.resolve_bin(raw_bin_id)
     if not bin_obj:
         return jsonify({'success': False, 'error': f"Bin '{raw_bin_id}' not found"}), 404
 
-    action = data.get('action')
-    if action == 'empty':
-        bin_obj, alert_info = IoTSimulator.empty_bin(bin_obj.id)
+    # Handle tare/empty action
+    if parsed.get('action') == 'empty':
+        bin_obj, _ = IoTService.empty_bin(bin_obj.id)
         return jsonify({
             'success': True,
             'bin_id': bin_obj.id,
+            'fill_percentage': bin_obj.fill_percentage,
             'fill_level': bin_obj.fill_percentage,
             'status': bin_obj.status,
             'weight_kg': bin_obj.weight_kg,
             'temperature_c': bin_obj.temperature_c,
             'battery_level': bin_obj.battery_level,
+            'last_updated': bin_obj.last_updated.isoformat() if bin_obj.last_updated else None,
             'action': 'emptied'
-        })
+        }), 200
 
-    # Read fill level from payload (supports fill_level, fill_percentage, or fill)
-    fill_val = data.get('fill_level')
-    if fill_val is None:
-        fill_val = data.get('fill_percentage', data.get('fill'))
-
-    if fill_val is None:
-        return jsonify({'success': False, 'error': 'fill_level is required'}), 400
-
-    try:
-        fill_val = float(fill_val)
-        fill_val = max(0.0, min(100.0, fill_val))
-    except (ValueError, TypeError):
-        return jsonify({'success': False, 'error': 'fill_level must be a numeric value'}), 400
-
-    bin_obj, alert_info = IoTSimulator.update_bin_telemetry(bin_obj, fill_val)
+    # Process real physical sensor telemetry
+    bin_obj, alert_info = IoTService.record_sensor_reading(
+        bin_obj=bin_obj,
+        fill_percentage=parsed['fill_percentage'],
+        weight_kg=parsed['weight_kg'],
+        temperature_c=parsed['temperature_c'],
+        battery_level=parsed['battery_level']
+    )
 
     return jsonify({
         'success': True,
         'bin_id': bin_obj.id,
+        'fill_percentage': bin_obj.fill_percentage,
         'fill_level': bin_obj.fill_percentage,
         'status': bin_obj.status,
         'weight_kg': bin_obj.weight_kg,
         'temperature_c': bin_obj.temperature_c,
         'battery_level': bin_obj.battery_level,
+        'last_updated': bin_obj.last_updated.isoformat() if bin_obj.last_updated else None,
         'alert': alert_info
-    })
-
-@bins_bp.route('/api/bins/<bin_id>/simulate', methods=['POST'])
-@login_required
-@role_required('admin')
-def api_simulate_bin(bin_id):
-    data = request.get_json(silent=True) or request.form
-    action = data.get('action')
-
-    bin_obj = db.session.get(Bin, bin_id)
-    if not bin_obj:
-        return jsonify({'success': False, 'error': f'Bin {bin_id} not found'}), 404
-
-    alert_info = None
-    if action == 'plus_10':
-        bin_obj, alert_info = IoTSimulator.simulate_delta(bin_id, 10.0)
-    elif action == 'minus_10':
-        bin_obj, alert_info = IoTSimulator.simulate_delta(bin_id, -10.0)
-    elif action == 'random':
-        bin_obj, alert_info = IoTSimulator.simulate_random(bin_id)
-    elif action == 'empty':
-        bin_obj, alert_info = IoTSimulator.empty_bin(bin_id)
-    elif action == 'set_fill':
-        fill_val = float(data.get('fill', 50.0))
-        bin_obj, alert_info = IoTSimulator.update_bin_telemetry(bin_obj, fill_val)
-    else:
-        return jsonify({'success': False, 'error': 'Invalid action'}), 400
-
-    return jsonify({
-        'success': True,
-        'bin': bin_obj.to_dict(),
-        'alert': alert_info
-    })
+    }), 200
 
 @bins_bp.route('/admin/collections')
 @login_required
@@ -220,10 +209,10 @@ def update_collection_status(req_id):
         req_obj.status = new_status
         if new_status == 'COMPLETED':
             req_obj.resolved_at = datetime.now(timezone.utc)
-            # When completed, automatically empty the corresponding bin
+            # When completed, automatically reset the serviced bin to empty
             bin_obj = db.session.get(Bin, req_obj.bin_id)
             if bin_obj:
-                IoTSimulator.empty_bin(bin_obj.id)
+                IoTService.empty_bin(bin_obj.id)
         db.session.commit()
         flash(f"Collection Request {req_obj.request_code} marked as {new_status}.", 'success')
     else:

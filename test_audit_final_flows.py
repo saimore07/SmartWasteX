@@ -25,7 +25,6 @@ if hasattr(sys.stdout, 'reconfigure'):
 from app import app
 from models import db
 from models.models import User, Bin, CollectionRequest, WasteScan, GreenCreditTransaction
-from services.iot_simulator import IoTSimulator
 
 def run_final_audit():
     print("=" * 75)
@@ -160,9 +159,9 @@ def run_final_audit():
         print("  ✓ TEST 5 PASSED: Admin authenticated, real name ('Dr. Ananya Rao') dynamically rendered.")
 
         # -------------------------------------------------------------
-        # TEST 6 — IoT SIMULATOR: 100% -> NO AUTO-RESET -> FULL ALERT
+        # TEST 6 — IoT SENSOR TELEMETRY: 100% -> NO AUTO-RESET -> FULL ALERT
         # -------------------------------------------------------------
-        print("\n[TEST 6] IoT Simulation: Fill to 100%, No Auto-Reset, Alert Generation")
+        print("\n[TEST 6] IoT Sensor Telemetry: Fill to 100%, No Auto-Reset, Alert Generation")
         test_bin = Bin.query.filter_by(id='BIN-02').first()
         assert test_bin is not None
         # Clean any existing active requests on test_bin

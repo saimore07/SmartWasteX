@@ -115,6 +115,23 @@ class Bin(db.Model):
     readings = db.relationship('BinReading', backref='bin', lazy='dynamic', cascade='all, delete-orphan')
     collection_requests = db.relationship('CollectionRequest', backref='bin', lazy='dynamic', cascade='all, delete-orphan')
 
+    @property
+    def has_sensor_data(self):
+        return self.readings.count() > 0
+
+    @property
+    def latest_reading(self):
+        return self.readings.order_by(BinReading.timestamp.desc()).first()
+
+    @property
+    def active_collection_request(self):
+        return self.collection_requests.filter(
+            CollectionRequest.status.in_(['PENDING', 'SCHEDULED', 'ASSIGNED', 'COLLECTED'])
+        ).order_by(CollectionRequest.created_at.desc()).first()
+
+    def recent_readings(self, limit=5):
+        return self.readings.order_by(BinReading.timestamp.desc()).limit(limit).all()
+
     def calculate_status(self):
         if self.fill_percentage >= 100:
             return 'OVERFLOW'
@@ -133,6 +150,8 @@ class Bin(db.Model):
         return round(hours, 1)
 
     def to_dict(self):
+        has_data = self.has_sensor_data
+        active_req = self.active_collection_request
         return {
             'id': self.id,
             'name': self.name,
@@ -145,9 +164,17 @@ class Bin(db.Model):
             'temperature_c': round(self.temperature_c, 1),
             'battery_level': round(self.battery_level, 1),
             'status': self.status,
-            'last_updated': self.last_updated.strftime('%Y-%m-%d %H:%M:%S') if self.last_updated else '',
+            'has_sensor_data': has_data,
+            'last_updated': self.last_updated.strftime('%Y-%m-%d %H:%M:%S') if (has_data and self.last_updated) else 'Awaiting sensor data',
+            'last_updated_iso': self.last_updated.isoformat() if (has_data and self.last_updated) else None,
             'estimated_fill_rate': self.estimated_fill_rate,
-            'hours_to_full': self.estimate_hours_to_full()
+            'hours_to_full': self.estimate_hours_to_full() if has_data else None,
+            'active_request': {
+                'id': active_req.id,
+                'request_code': active_req.request_code,
+                'priority': active_req.priority,
+                'status': active_req.status
+            } if active_req else None
         }
 
 

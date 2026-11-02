@@ -305,8 +305,8 @@
         <div class="col-lg-7">
             <div class="card eco-card h-100">
                 <div class="card-header bg-transparent py-3 px-4 d-flex justify-content-between align-items-center border-bottom">
-                    <h5 class="mb-0 fw-bold"><i class="bi bi-broadcast text-success me-2"></i> Simulated IoT Smart Bins Status</h5>
-                    <a href="{{ url_for('bins.admin_bins') }}" class="btn btn-sm btn-outline-success">Open Simulator</a>
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-broadcast text-success me-2"></i> IoT Smart Bins Telemetry Status</h5>
+                    <a href="{{ url_for('bins.admin_bins') }}" class="btn btn-sm btn-outline-success">Manage Bins</a>
                 </div>
                 <div class="card-body p-0">
                     <div class="table-responsive">
@@ -332,19 +332,16 @@
                                                 <div class="progress flex-grow-1" style="height: 8px;">
                                                     <div id="dash-fill-bar-{{ b.id }}" class="progress-bar {% if b.fill_percentage >= 100 %}bg-danger progress-bar-striped progress-bar-animated{% elif b.fill_percentage >= 85 %}bg-danger{% elif b.fill_percentage >= 70 %}bg-warning{% else %}bg-success{% endif %}" style="width: {{ [b.fill_percentage, 100]|min }}%;"></div>
                                                 </div>
-                                                <small class="fw-bold" id="dash-fill-text-{{ b.id }}">{{ b.fill_percentage }}%</small>
+                                                <small class="fw-bold" id="dash-fill-text-{{ b.id }}">{% if b.has_sensor_data %}{{ b.fill_percentage }}%{% else %}Awaiting data{% endif %}</small>
                                             </div>
                                         </td>
                                         <td>
-                                            <span id="dash-status-badge-{{ b.id }}" class="badge {% if b.status == 'OVERFLOW' %}badge-eco-overflow{% elif b.status == 'HIGH' %}badge-eco-high{% elif b.status == 'WARNING' %}badge-eco-warning{% else %}badge-eco-normal{% endif %}">
-                                                {% if b.status == 'OVERFLOW' %}FULL / PICKUP REQUIRED{% else %}{{ b.status }}{% endif %}
+                                            <span id="dash-status-badge-{{ b.id }}" class="badge {% if not b.has_sensor_data %}bg-secondary-subtle text-secondary border{% elif b.status == 'OVERFLOW' %}badge-eco-overflow{% elif b.status == 'HIGH' %}badge-eco-high{% elif b.status == 'WARNING' %}badge-eco-warning{% else %}badge-eco-normal{% endif %}">
+                                                {% if b.has_sensor_data %}{% if b.status == 'OVERFLOW' %}FULL / PICKUP REQUIRED{% else %}{{ b.status }}{% endif %}{% else %}Awaiting data{% endif %}
                                             </span>
                                         </td>
                                         <td class="pe-4 text-end">
-                                            <form method="POST" action="{{ url_for('bins.bin_action', bin_id=b.id) }}" class="d-inline">
-                                                <input type="hidden" name="action" value="empty">
-                                                <button type="submit" class="btn btn-outline-secondary btn-sm py-0 px-2" title="Empty Bin">Empty</button>
-                                            </form>
+                                            <a href="{{ url_for('bins.admin_bins') }}" class="btn btn-outline-primary btn-sm py-0 px-2">Monitor</a>
                                         </td>
                                     </tr>
                                 {% endfor %}

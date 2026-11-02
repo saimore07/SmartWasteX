@@ -8,10 +8,10 @@
 **SmartWasteX** is an institutional circular economy platform developed for university campuses and municipal complexes. It unifies four critical pillars of waste management into a single, cohesive web application:
 1. **AI-Powered Waste Segregation Scanner**: Uses OpenCV computer vision and semantic feature extraction to classify waste items into Biodegradable, Dry Recyclable, and Hazardous/E-Waste streams, guiding users to nearest smart bins.
 2. **Institutional E-Waste Lifecycle Tracking**: Issues tamper-evident **Digital Passports** with verifiable QR codes for university electronics (laptops, phones, PCBs), tracking custody from registration through certified R2 recycling.
-3. **Simulated Smart-Bin Telemetry Network**: Simulates ultrasonic fill depth, weight load-cells, and temperature probes across virtual campus bins with automatic overflow warnings and high-priority collection ticketing.
+3. **IoT Smart-Bin Monitoring & Telemetry Network**: Hardware-ready telemetry processing ultrasonic fill depth, load-cell weight, and temperature probes with automatic overflow warnings and high-priority collection ticketing.
 4. **Community Incentives (Green Credits)**: Database-backed points ledger rewarding students and faculty for verified disposal actions, linked to real-time campus leaderboards and SDG 11 carbon abatement analytics.
 
-> **Note on IoT Telemetry:** Smart bin sensor data in this MVP is simulated via software (`services/iot_simulator.py`) to allow reproducible demonstrations without physical microcontrollers.
+> **Note on IoT Telemetry:** Smart bin sensor data is ingested via authenticated REST endpoints (`POST /api/iot/bin-update`, `POST /api/iot/telemetry`) protected with device API keys, accepting real-world edge microcontroller telemetry.
 
 ---
 
@@ -53,10 +53,10 @@
              |                                   |                                   |
              v                                   v                                   v
 +------------+------------+     +----------------+------------+     +----------------+------------+
-|      AI Classifier      |     |        IoT Simulator        |     |      QR Code Service       |
-|  (services/classifier)  |     |  (services/iot_simulator)   |     |  (services/qr_service)     |
-|   OpenCV Feature /      |     |   Sensor telemetry, load,   |     |   Generates scannable      |
-|   Color Space & Edges   |     |   fill level & alerts       |     |   asset passport PNGs      |
+|      AI Classifier      |     |         IoT Service        |     |      QR Code Service       |
+|  (services/classifier)  |     |   (services/iot_service)   |     |  (services/qr_service)     |
+|   OpenCV Feature /      |     |   Physical sensor gateway, |     |   Generates scannable      |
+|   Color Space & Edges   |     |   tolerances & alerts      |     |   asset passport PNGs      |
 +------------+------------+     +----------------+------------+     +----------------+------------+
              |                                   |                                   |
              |      +----------------------------+----------------------------+      |
@@ -185,8 +185,8 @@ For frictionless evaluation, 1-click credential prefill buttons are provided dir
   - **Dry Recyclable** (+10 Credits): PET plastic bottles, aluminum cans, newspapers, cardboards.
   - **Hazardous / E-Waste** (+25 Credits): Lithium-ion batteries, smartphones, circuit boards, laptops.
 
-### 2. Software-Simulated Smart Bin Telemetry (`services/iot_simulator.py`)
-- Tracks 4 virtual campus receptacles:
+### 2. Hardware IoT Sensor Telemetry & Ingestion Gateway (`services/iot_service.py`)
+- Ingests telemetry from physical or edge microcontrollers (ESP32 / Raspberry Pi / LoRaWAN):
   - `BIN-01`: Main Building (Dry Recyclable)
   - `BIN-02`: Cafeteria (Biodegradable)
   - `BIN-03`: Library (Dry Recyclable)
@@ -196,7 +196,8 @@ For frictionless evaluation, 1-click credential prefill buttons are provided dir
   - `70% <= fill < 85%`: **WARNING**
   - `85% <= fill < 100%`: **HIGH** (Automated "Collection Recommended" notification)
   - `fill >= 100%`: **OVERFLOW** (Triggers 🚨 **URGENT OVERFLOW ALERT** and generates a high-priority collection ticket in the database).
-- **Controls**: Interactive buttons (`[+10%]`, `[-10%]`, `[Random Reading]`, `[Empty Bin]`, `[Push to 100%]`).
+- **Authentication**: Protected via `X-API-Key` or `Authorization: Bearer <key>`.
+- **Validation**: Enforces physical boundaries (fill: 0-100%, weight: 0-500 kg, temp: -40 to 85 °C, battery: 0-100%).
 - **Predictive Estimation**: Formula: `hours_remaining = (100 - fill_percentage) / fill_rate_per_hour`.
 
 ### 3. E-Waste Digital Passport & Public QR Verification (`routes/ewaste.py`)

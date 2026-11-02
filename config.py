@@ -20,5 +20,5 @@ class Config:
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16 MB max upload
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'webp', 'bmp'}
     
-    # IoT Simulation defaults
-    SIMULATION_INTERVAL_SEC = int(os.environ.get('SIMULATION_INTERVAL_SEC', 30))
+    # IoT Hardware Gateway Security
+    IOT_API_KEY = os.environ.get('IOT_API_KEY', 'smartwastex-iot-device-key-2026')
